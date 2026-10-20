@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HMWK 2 — Toy ECC vs. Caesar Cipher & Cryptanalysis</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 920px;
+      margin: 20px auto;
+      padding: 0 15px;
+      line-height: 1.55;
+      color: #222;
+      background-color: #f9f9fb;
+    }
+    h1, h2, h3 { color: #1a202c; margin-top: 0.6em; }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 18px 22px;
+      margin-bottom: 22px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .col { flex: 1; min-width: 290px; }
+    label { font-weight: 600; display: block; margin-top: 10px; font-size: 14px; }
+    select, input, textarea, button {
+      padding: 7px 10px;
+      margin-top: 5px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    input[type="text"], textarea { width: 100%; box-sizing: border-box; }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      margin-right: 5px;
+      margin-top: 10px;
+    }
+    button:hover { background: #1d4ed8; }
+    button.secondary { background: #475569; }
+    button.secondary:hover { background: #334155; }
+    .result-box {
+      margin-top: 12px;
+      padding: 12px;
+      background: #ecfdf5;
+      border: 2px solid #10b981;
+      border-radius: 6px;
+      font-weight: bold;
+      color: #065f46;
+      font-size: 14px;
+      word-break: break-all;
+    }
+    .attack-box {
+      margin-top: 12px;
+      padding: 12px;
+      background: #fef2f2;
+      border: 2px solid #ef4444;
+      border-radius: 6px;
+      color: #991b1b;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 13.5px;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 7px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f1f5f9; }
+    canvas {
+      border: 1px solid #ccc;
+      background: #fff;
+      border-radius: 4px;
+      display: block;
+      margin-top: 10px;
+      width: 100%;
+    }
+    code {
+      background: #f1f5f9;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .highlight-row { background-color: #d1fae5; font-weight: bold; }
+    .fail-row { background-color: #fee2e2; }
+    .mono-out {
+      font-family: monospace;
+      font-size: 12.5px;
+      background: #f8fafc;
+      padding: 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-top: 8px;
+    }
+    .badge-ok { background: #10b981; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    .badge-err { background: #ef4444; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+  <h1>HMWK 2 — Toy ECC Encryption, Caesar Cipher &amp; Cryptanalysis</h1>
+  <p>
+    <strong>Toy Curve from Part 1:</strong> <code>y² ≡ x³ + 7 (mod 17)</code> (Subgroup order <code>n = 18</code>, 17 finite points + Point at Infinity <code>O</code>)
+  </p>
+
+  <!-- =================================================================== -->
+  <!-- CARD 1: TOY ECC ENCRYPTION & DECRYPTION + CAESAR CIPHER             -->
+  <!-- =================================================================== -->
+  <div class="card">
+    <h2>1. Toy ECC Scheme vs. Caesar Cipher (Encryption &amp; Decryption)</h2>
+    
+    <label for="sharedPlaintext">Shared Plaintext Message (used for both schemes):</label>
+    <input type="text" id="sharedPlaintext" value="Attack at dawn! The secret key is hidden inside the elliptic curve." oninput="runAll()">
+
+    <div class="row" style="margin-top: 10px;">
+      <!-- Left Column: Toy ECC Scheme -->
+      <div class="col">
+        <h3>A. Toy ECC Scheme (secp256k1 mod 17)</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <div>
+            <label for="eccBaseSelect">Base Point G:</label>
+            <select id="eccBaseSelect" onchange="runAll()"></select>
+          </div>
+          <div>
+            <label for="eccPrivKey">Private Key d (1..17):</label>
+            <input type="number" id="eccPrivKey" value="6" min="1" max="17" style="width: 70px;" onchange="runAll()">
+          </div>
+          <div>
+            <label for="eccEphSeed">Ephemeral Seed k₀:</label>
+            <input type="number" id="eccEphSeed" value="11" min="1" max="17" style="width: 70px;" onchange="runAll()">
+          </div>
+        </div>
+
+        <div id="eccKeyInfo" class="result-box"></div>
+        <div class="mono-out" id="eccCipherOutput"></div>
+        <div class="mono-out" id="eccDecryptedOutput" style="background:#f0fdf4; border-color:#bbf7d0;"></div>
+      </div>
+
+      <!-- Right Column: Caesar Cipher -->
+      <div class="col">
+        <h3>B. The Caesar Cipher (mod 26)</h3>
+        <label for="caesarKeyInput">Secret Shift Key k (0..25):</label>
+        <input type="number" id="caesarKeyInput" value="17" min="0" max="25" style="width: 90px;" onchange="runAll()">
+
+        <div id="caesarKeyInfo" class="result-box" style="background:#eff6ff; border-color:#3b82f6; color:#1e40af;"></div>
+        <div class="mono-out" id="caesarCipherOutput"></div>
+        <div class="mono-out" id="caesarDecryptedOutput" style="background:#f0fdf4; border-color:#bbf7d0;"></div>
+      </div>
+    </div>
+
+    <!-- Discussion: Main Steps, Role of Keys & Comparison -->
+    <h3 style="margin-top: 20px;">Algorithm Description, Role of Keys &amp; Scheme Comparison</h3>
+    <ul>
+      <li>
+        <strong>Main Steps &amp; Role of Keys in the Toy ECC Scheme (ECIES / ElGamal Hybrid over F₁₇):</strong>
+        <ol>
+          <li><em>Key Generation:</em> The receiver selects a secret scalar <strong>Private Key <code>d ∈ [1, 17]</code></strong> and computes the <strong>Public Key <code>Q = dG</code></strong> on the curve. <code>Q</code> is published openly; <code>d</code> is kept secret for decryption.</li>
+          <li><em>Encryption:</em> For each character block <code>m[i]</code>, the sender chooses a fresh per-block <strong>Ephemeral Key <code>kᵢ ∈ [1, 17]</code></strong> and computes two curve points: the public ephemeral point <code>Rᵢ = kᵢG</code> and the shared secret point <code>Sᵢ = kᵢQ</code>. Using a key derivation mask from coordinates <code>(Sᵢ.x, Sᵢ.y)</code>, the sender masks the character: <code>cᵢ = (m[i] + mask(Sᵢ)) mod 256</code>. The transmitted ciphertext consists of pairs <code>(Rᵢ, cᵢ)</code>.</li>
+          <li><em>Decryption:</em> The receiver uses their <strong>Private Key <code>d</code></strong> to compute <code>S'ᵢ = d · Rᵢ</code>. By associativity/commutativity of scalar multiplication, <code>d(kᵢG) = kᵢ(dG) = kᵢQ = Sᵢ</code>. The receiver reconstructs the exact same shared point <code>Sᵢ</code> and recovers <code>m[i] = (cᵢ - mask(S'ᵢ)) mod 256</code>.</li>
+        </ol>
+      </li>
+    </ul>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Caesar Cipher</th>
+          <th>Toy ECC Scheme (secp256k1 mod 17)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Encryption &amp; Decryption Procedure</strong></td>
+          <td><strong>Symmetric &amp; Deterministic:</strong> Uses identical key <code>k</code> for both encryption <code>E(x) = (x + k) mod 26</code> and decryption <code>D(y) = (y - k) mod 26</code>. Identical plaintext letters always map to identical ciphertext letters.</td>
+          <td><strong>Asymmetric &amp; Probabilistic:</strong> Encrypts with public point <code>Q = dG</code> and fresh ephemeral scalars <code>kᵢ</code>; decrypts with private scalar <code>d</code> via elliptic curve point addition over <code>F₁₇</code>. Identical plaintext letters produce different ciphertexts.</td>
+        </tr>
+        <tr>
+          <td><strong>Key Space</strong></td>
+          <td><strong>26 keys</strong> (only 25 non-trivial shifts). Trivial to exhaustively search by hand or computer.</td>
+          <td><strong>Restricted Toy Space: 17 keys</strong> (subgroup order <code>n = 18</code> for <code>p = 17</code>). In real <em>secp256k1</em>, the key space is <code>≈ 2²⁵⁶ ≈ 1.15 × 10⁷⁷</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Statistical Properties</strong></td>
+          <td><strong>Statistical Invariance (Zero Diffusion):</strong> Letter frequencies, double letters, and word patterns are completely preserved—the histogram is merely shifted cyclically by <code>k</code> positions.</td>
+          <td><strong>Confusion &amp; Diffusion:</strong> Non-linear point additions and rotating ephemeral keys flatten the output distribution, hiding single-letter frequencies of the underlying natural language.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- CARD 2: STATISTICAL CRYPTANALYSIS OF THE CAESAR CIPHER              -->
+  <!-- =================================================================== -->
+  <div class="card">
+    <h2>2. Statistical Cryptanalysis of the Caesar Cipher</h2>
+    <p style="font-size: 14px;">
+      Using a built-in English reference corpus, we compute reference letter frequencies <code>P[A..Z]</code> and bigram transition probabilities, then attack the Caesar ciphertext without knowing the secret shift <code>k</code>.
+    </p>
+
+    <div class="row">
+      <div class="col">
+        <h3>Live Attack on Current Message</h3>
+        <div id="caesarAttackSummary" class="mono-out"></div>
+        <h3 style="margin-top: 14px;">Chi-Squared (χ²) Score Across All 26 Candidate Keys</h3>
+        <canvas id="chi2Canvas" width="420" height="190"></canvas>
+        <p style="font-size: 12px; color: #666; margin-top: 4px;">
+          Lower bar = better match to English corpus distribution. Green bar = minimum χ² (recovered key).
+        </p>
+      </div>
+
+      <div class="col">
+        <h3>Multi-Length Effectiveness Benchmark</h3>
+        <p style="font-size: 13px; margin-top: 4px;">
+          Testing 3 cryptanalysis algorithms across 4 ciphertext lengths (encrypted with key <code>k = <span id="benchKeyLabel">17</span></code>):
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Ciphertext Length &amp; Sample</th>
+              <th>χ² Unigram</th>
+              <th>Max-Freq ('E')</th>
+              <th>Bigram Score</th>
+            </tr>
+          </thead>
+          <tbody id="lengthBenchTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3>Discussion: Algorithm Design, Effectiveness, Limitations &amp; Alternatives</h3>
+    <ul>
+      <li>
+        <strong>Algorithm Design (Chi-Squared Goodness-of-Fit):</strong>
+        From the reference English corpus, we extract the relative frequency <code>Pᵢ</code> of each letter <code>i ∈ {A..Z}</code>. For each candidate shift <code>g ∈ {0..25}</code>, we decrypt the ciphertext of length <code>N</code>, count the observed letter occurrences <code>Oᵢ</code>, and compare them against the expected counts <code>Eᵢ = N · Pᵢ</code>:
+        <br><code>χ²(g) = ∑ (Oᵢ - Eᵢ)² / Eᵢ</code>. The candidate <code>g</code> minimizing <code>χ²(g)</code> is selected as the recovered key.
+      </li>
+      <li>
+        <strong>Effectiveness &amp; Limitations Across Ciphertext Lengths:</strong>
+        <ul>
+          <li><em>Long &amp; Medium Texts (≥ 30 letters):</em> By the Law of Large Numbers, the empirical distribution converges rapidly to the corpus profile, yielding 100% accuracy.</li>
+          <li><em>Very Short Texts (&lt; 10 letters, e.g. "Jazzy" or "Quiz"):</em> Unigram statistics often fail because high-frequency English letters (<code>E, T, A, O</code>) may not appear at all, or rare letters (<code>Z, J, X</code>) dominate due to sample variance.</li>
+          <li><em>Language / Domain Mismatch:</em> If the plaintext is in another language (e.g. Italian or German), contains technical jargon, numbers, or is a lipogram (text deliberately omitting 'E'), the corpus model diverges.</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Optional — Comparison of Alternative Approaches:</strong>
+        <ul>
+          <li><em>Simple Letter-Frequency (Argmax → 'E'):</em> Maps the single most frequent ciphertext letter to <code>'E'</code>. Extremely fast, but brittle on short/medium texts where <code>'T'</code>, <code>'A'</code>, or <code>'I'</code> randomly outnumber <code>'E'</code> (see the 19-char benchmark row above!).</li>
+          <li><em>N-Gram Scoring (Bigram Log-Likelihood):</em> Scores candidate plaintexts via <code>∑ log P(cⱼ, cⱼ₊₁)</code>. Superior on short texts because impossible English transitions (like <code>QZ</code> or <code>JX</code>) heavily penalize wrong keys even when single-letter counts are noisy.</li>
+          <li><em>Exhaustive Key Search (Dictionary Verification):</em> Generates all 26 shifts and checks word matches against a dictionary. Because <code>|K| = 26</code>, this succeeds even on a single 4-letter word like <code>"JAZZ"</code> where pure frequency analysis fails.</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- CARD 3: ATTACKING THE RESTRICTED TOY ECC KEY SPACE                  -->
+  <!-- =================================================================== -->
+  <div class="card">
+    <h2>3. Attacking the Toy ECC Scheme (Restricted Key Space ECDLP)</h2>
+    <p style="font-size: 14px;">
+      Attacker intercepts Public Key <code>Q</code>, Base Point <code>G</code>, and the ECC Ciphertext. Exploiting the small key range <code>d ∈ [1, 17]</code>, we recover the private key and decrypt the message automatically:
+    </p>
+
+    <div class="row">
+      <div class="col">
+        <h3>Attack 1: Exhaustive Linear Search — O(n)</h3>
+        <div id="eccBruteBox" class="attack-box"></div>
+        <div style="max-height: 190px; overflow-y: auto; margin-top: 8px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Candidate d'</th>
+                <th>Computed Point d'G</th>
+                <th>Match Q?</th>
+              </tr>
+            </thead>
+            <tbody id="eccAttackTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="col">
+        <h3>Attack 2 (Optional): Baby-Step Giant-Step — O(√n)</h3>
+        <div id="eccBsgsBox" class="attack-box" style="background:#fffbeb; border-color:#f59e0b; color:#92400e;"></div>
+        <div class="mono-out" id="eccBsgsLog"></div>
+        <div class="result-box" id="eccAttackDecrypted"></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 20px;">Discussion: ECC Attack vs. Caesar Attack, Real-World Scaling &amp; Toy Flaws</h3>
+    <ul>
+      <li>
+        <strong>Differences Between the ECC Attack and Statistical Caesar Cryptanalysis:</strong>
+        <ul>
+          <li><em>Target &amp; Mechanism:</em> The Caesar attack is a <strong>ciphertext-only statistical attack</strong> exploiting linguistic redundancy leaked into the ciphertext. The ECC attack is an <strong>algebraic public-key attack</strong> solving the Elliptic Curve Discrete Logarithm Problem (ECDLP, finding <code>d</code> from <code>Q = dG</code>) before touching the ciphertext.</li>
+          <li><em>Verification Criterion:</em> Caesar cryptanalysis is <em>probabilistic</em>—every candidate shift produces letters, so we rely on a statistical score (<code>χ²</code>) to guess which output looks like English. The ECC attack is <em>100% deterministic and exact</em>: as soon as <code>d'G == Q</code> holds mathematically, the exact private key is proven found, even if the encrypted message were random binary bytes.</li>
+        </ul>
+      </li>
+      <li style="margin-top: 8px;">
+        <strong>Why This Attack Fails Against Properly Configured secp256k1:</strong>
+        <ul>
+          <li>In real Ethereum/Bitcoin <em>secp256k1</em>, the prime field is <code>p ≈ 2²⁵⁶</code> and the generator order is <code>n ≈ 1.158 × 10⁷⁷ ≈ 2²⁵⁶</code>.</li>
+          <li><strong>Linear Brute Force O(n):</strong> Requires up to <code>2²⁵⁶</code> curve additions—physically impossible even with planetary-scale computers over billions of years.</li>
+          <li><strong>Generic Square-Root Algorithms O(√n) (Baby-Step Giant-Step / Pollard's Rho):</strong> Even the best classical ECDLP algorithms require <code>√(2²⁵⁶) = 2¹²⁸ ≈ 3.4 × 10³⁸</code> operations (128-bit security level), and BSGS additionally requires <code>O(2¹²⁸)</code> memory storage, making key recovery computationally infeasible.</li>
+        </ul>
+      </li>
+      <li style="margin-top: 8px;">
+        <strong>Optional — Restricted Key-Space Weaknesses vs. Intrinsic Toy Design Flaws:</strong>
+        <ul>
+          <li><em>Weaknesses from Restricted Key Space (<code>p = 17, n = 18</code>):</em> Both the long-term private key <code>d</code> (from <code>Q = dG</code>) and any per-message ephemeral key <code>k</code> (from <code>R = kG</code>) can be recovered instantly via linear search, BSGS, or Pollard's Rho.</li>
+          <li><em>Weaknesses from Toy Scheme Design (even if <code>p</code> were 256-bit!):</em>
+            <ol>
+              <li><strong>Single Fixed Ephemeral Key (k-Reuse / Deterministic Mode):</strong> If a toy implementation reuses the same ephemeral scalar <code>k</code> across characters or messages without proper key-stream chaining, identical masks are applied—turning ECC into a simple substitution/XOR cipher vulnerable to frequency analysis or two-time pad attacks (<code>C₁ ⊕ C₂ = M₁ ⊕ M₂</code>).</li>
+              <li><strong>Lack of Authenticated Encryption (Malleability):</strong> Because there is no MAC (unlike real ECIES which includes HMAC-SHA256), an active attacker can modify ciphertext bytes <code>cᵢ</code> in transit to flip predictable characters in the decrypted plaintext (Chosen-Ciphertext vulnerability).</li>
+              <li><strong>Un-hashed Coordinate Masking:</strong> Using raw curve coordinates <code>(S.x, S.y)</code> directly instead of passing them through a cryptographic Key Derivation Function (KDF / SHA-256) leaks algebraic structure from the elliptic curve group.</li>
+            </ol>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. ELLIPTIC CURVE MATH FROM HMWK 1: y^2 = x^3 + 7 (mod 17)
+    // =========================================================================
+    const P_MOD = 17;
+    const A = 0;
+    const B = 7;
+
+    function mod(n, m) {
+      return ((n % m) + m) % m;
+    }
+
+    function modInverse(a, m) {
+      a = mod(a, m);
+      for (let x = 1; x < m; x++) {
+        if ((a * x) % m === 1) return x;
+      }
+      return null;
+    }
+
+    function pointAdd(P1, P2) {
+      if (P1.infinity) return { ...P2 };
+      if (P2.infinity) return { ...P1 };
+
+      if (P1.x === P2.x) {
+        if (mod(P1.y + P2.y, P_MOD) === 0) return { infinity: true };
+        const num = mod(3 * P1.x * P1.x + A, P_MOD);
+        const den = modInverse(2 * P1.y, P_MOD);
+        if (den === null) return { infinity: true };
+        const lambda = mod(num * den, P_MOD);
+        const x3 = mod(lambda * lambda - 2 * P1.x, P_MOD);
+        const y3 = mod(lambda * (P1.x - x3) - P1.y, P_MOD);
+        return { x: x3, y: y3, infinity: false };
+      }
+
+      const num = mod(P2.y - P1.y, P_MOD);
+      const den = modInverse(P2.x - P1.x, P_MOD);
+      if (den === null) return { infinity: true };
+      const lambda = mod(num * den, P_MOD);
+      const x3 = mod(lambda * lambda - P1.x - P2.x, P_MOD);
+      const y3 = mod(lambda * (P1.x - x3) - P1.y, P_MOD);
+      return { x: x3, y: y3, infinity: false };
+    }
+
+    function pointNeg(P) {
+      if (P.infinity) return { infinity: true };
+      return { x: P.x, y: mod(-P.y, P_MOD), infinity: false };
+    }
+
+    function pointsEqual(P1, P2) {
+      if (P1.infinity && P2.infinity) return true;
+      if (P1.infinity || P2.infinity) return false;
+      return P1.x === P2.x && P1.y === P2.y;
+    }
+
+    function scalarMult(k, P) {
+      let result = { infinity: true };
+      for (let i = 0; i < k; i++) {
+        result = pointAdd(result, P);
+      }
+      return result;
+    }
+
+    function formatPt(pt) {
+      return pt.infinity ? 'O (Infinity)' : `(${pt.x}, ${pt.y})`;
+    }
+
+    // Enumerate all 17 finite points on y^2 = x^3 + 7 (mod 17)
+    const allCurvePoints = [];
+    for (let x = 0; x < P_MOD; x++) {
+      for (let y = 0; y < P_MOD; y++) {
+        if (mod(y * y, P_MOD) === mod(x * x * x + A * x + B, P_MOD)) {
+          allCurvePoints.push({ x, y, infinity: false });
+        }
+      }
+    }
+
+    // =========================================================================
+    // 2. TOY ECC ENCRYPTION & DECRYPTION
+    // =========================================================================
+    function deriveMask(sharedPt, index) {
+      if (sharedPt.infinity) return (index * 31 + 17) % 256;
+      return (sharedPt.x * 19 + sharedPt.y * 7 + index * 13) % 256;
+    }
+
+    function eccEncrypt(plaintext, G, pubKeyQ, ephSeed) {
+      const cipherBlocks = [];
+      for (let i = 0; i < plaintext.length; i++) {
+        // Rotate ephemeral key k_i in [1..17] so encryption is probabilistic
+        const k_i = ((ephSeed + i * 5 - 1) % 17) + 1;
+        const R_i = scalarMult(k_i, G);
+        const S_i = scalarMult(k_i, pubKeyQ);
+        const mask = deriveMask(S_i, i);
+        const c_i = (plaintext.charCodeAt(i) + mask) % 256;
+        cipherBlocks.push({ R: R_i, c: c_i });
+      }
+      return cipherBlocks;
+    }
+
+    function eccDecrypt(cipherBlocks, privKeyD) {
+      let chars = [];
+      for (let i = 0; i < cipherBlocks.length; i++) {
+        const { R, c } = cipherBlocks[i];
+        const S_prime = scalarMult(privKeyD, R); // S' = d * R = d * k * G = k * Q
+        const mask = deriveMask(S_prime, i);
+        const m_code = mod(c - mask, 256);
+        chars.push(String.fromCharCode(m_code));
+      }
+      return chars.join('');
+    }
+
+    // =========================================================================
+    // 3. CAESAR CIPHER & STATISTICAL CRYPTANALYSIS
+    // =========================================================================
+    function caesarEncrypt(text, key) {
+      const s = mod(key, 26);
+      return text.replace(/[a-zA-Z]/g, (ch) => {
+        const base = ch <= 'Z' ? 65 : 97;
+        return String.fromCharCode(((ch.charCodeAt(0) - base + s) % 26) + base);
+      });
+    }
+
+    function caesarDecrypt(ciphertext, key) {
+      return caesarEncrypt(ciphertext, -key);
+    }
+
+    // English Reference Corpus to build statistical language profile
+    const ENGLISH_CORPUS = `
+      Cryptography is the practice and study of techniques for secure communication in the presence of
+      adversarial behavior. More generally, cryptography is about constructing and analyzing protocols that
+      prevent third parties or the public from reading private messages. Various aspects in information
+      security such as data confidentiality, data integrity, authentication, and non-repudiation are central
+      to modern cryptography. Modern cryptography exists at the intersection of the disciplines of mathematics,
+      computer science, electrical engineering, communication science, and physics. Applications of cryptography
+      include electronic commerce, chip-based payment cards, digital currencies, computer passwords, and
+      military communications. Elliptic curve cryptography is an approach to public-key cryptography based on
+      the algebraic structure of elliptic curves over finite fields. Elliptic curves are applicable for key
+      agreement, digital signatures, pseudo-random generators and other tasks. Before the modern era,
+      cryptography was effectively synonymous with encryption, converting information from a readable state
+      to unintelligible nonsense. The sender of an encrypted message shares the decoding technique only with
+      intended recipients to preclude access from adversaries.
+    `;
+
+    // Build Unigram & Bigram probability profiles from corpus
+    const corpusProfile = (() => {
+      const clean = ENGLISH_CORPUS.toUpperCase().replace(/[^A-Z]/g, '');
+      const counts = new Array(26).fill(1); // +1 Laplace smoothing
+      for (let ch of clean) counts[ch.charCodeAt(0) - 65]++;
+      const total = clean.length + 26;
+      const unigrams = counts.map(c => c / total);
+
+      const biCounts = {};
+      for (let i = 0; i < 26; i++) {
+        for (let j = 0; j < 26; j++) {
+          biCounts[String.fromCharCode(65 + i) + String.fromCharCode(65 + j)] = 0.1;
+        }
+      }
+      for (let i = 0; i < clean.length - 1; i++) {
+        const bg = clean.slice(i, i + 2);
+        biCounts[bg] += 1;
+      }
+      const biLogProbs = {};
+      const biTotal = clean.length - 1 + 67.6;
+      for (let k in biCounts) biLogProbs[k] = Math.log(biCounts[k] / biTotal);
+
+      return { unigrams, biLogProbs };
+    })();
+
+    // Method 1: Chi-Squared Goodness-of-Fit Attack
+    function breakCaesarChi2(ciphertext) {
+      const scores = [];
+      let bestKey = 0;
+      let minChi2 = Infinity;
+
+      for (let g = 0; g < 26; g++) {
+        const candidate = caesarDecrypt(ciphertext, g).toUpperCase().replace(/[^A-Z]/g, '');
+        const N = candidate.length || 1;
+        const obs = new Array(26).fill(0);
+        for (let ch of candidate) obs[ch.charCodeAt(0) - 65]++;
+
+        let chi2 = 0;
+        for (let i = 0; i < 26; i++) {
+          const expected = N * corpusProfile.unigrams[i];
+          chi2 += ((obs[i] - expected) ** 2) / expected;
+        }
+        scores.push(chi2);
+        if (chi2 < minChi2) {
+          minChi2 = chi2;
+          bestKey = g;
+        }
+      }
+      return { bestKey, minChi2, scores, plaintext: caesarDecrypt(ciphertext, bestKey) };
+    }
+
+    // Method 2 (Alternative): Simple Most-Frequent Letter -> 'E'
+    function breakCaesarMaxFreq(ciphertext) {
+      const clean = ciphertext.toUpperCase().replace(/[^A-Z]/g, '');
+      if (!clean.length) return 0;
+      const counts = new Array(26).fill(0);
+      for (let ch of clean) counts[ch.charCodeAt(0) - 65]++;
+      let maxIdx = 0;
+      for (let i = 1; i < 26; i++) {
+        if (counts[i] > counts[maxIdx]) maxIdx = i;
+      }
+      return mod(maxIdx - ('E'.charCodeAt(0) - 65), 26);
+    }
+
+    // Method 3 (Alternative): Bigram Log-Likelihood Scoring
+    function breakCaesarBigrams(ciphertext) {
+      let bestKey = 0;
+      let bestScore = -Infinity;
+      for (let g = 0; g < 26; g++) {
+        const clean = caesarDecrypt(ciphertext, g).toUpperCase().replace(/[^A-Z]/g, '');
+        let score = 0;
+        for (let i = 0; i < clean.length - 1; i++) {
+          score += corpusProfile.biLogProbs[clean.slice(i, i + 2)];
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestKey = g;
+        }
+      }
+      return bestKey;
+    }
+
+    // =========================================================================
+    // 4. ATTACKS ON TOY ECC (LINEAR BRUTE FORCE & BABY-STEP GIANT-STEP)
+    // =========================================================================
+    function attackEccLinear(G, Q, maxRange = 18) {
+      const trace = [];
+      let curr = { ...G };
+      for (let d = 1; d <= maxRange; d++) {
+        const match = pointsEqual(curr, Q);
+        trace.push({ d, pt: { ...curr }, match });
+        if (match) return { recoveredD: d, ops: d, trace };
+        curr = pointAdd(curr, G);
+      }
+      return { recoveredD: null, ops: maxRange, trace };
+    }
+
+    function attackEccBSGS(G, Q, order = 18) {
+      const m = Math.ceil(Math.sqrt(order)); // m = 5 for order 18
+      const babyTable = new Map();
+      let curr = { infinity: true };
+      let ops = 0;
+      const logLines = [`Subgroup order n = ${order} -> step size m = ceil(√18) = ${m}`];
+
+      // 1. Baby Steps: compute j*G for j = 0 .. m-1
+      const babyStr = [];
+      for (let j = 0; j < m; j++) {
+        babyTable.set(formatPt(curr), j);
+        babyStr.push(`j=${j}:${formatPt(curr)}`);
+        curr = pointAdd(curr, G);
+        ops++;
+      }
+      logLines.push(`Baby Steps (stored in Map): ${babyStr.join(', ')}`);
+
+      // Giant Step stride: -m*G
+      const mG = curr; // Since loop ran m times, curr is now m*G
+      const neg_mG = pointNeg(mG);
+      logLines.push(`Giant Step Stride (-${m}G): ${formatPt(neg_mG)}`);
+
+      // 2. Giant Steps: check Q + i*(-mG) for i = 0 .. m
+      let gamma = { ...Q };
+      for (let i = 0; i <= m; i++) {
+        const keyStr = formatPt(gamma);
+        if (babyTable.has(keyStr)) {
+          const j = babyTable.get(keyStr);
+          const d = i * m + j;
+          if (d > 0) {
+            logLines.push(`Collision at i=${i}: Q - ${i}*(${m}G) = ${keyStr} matches j=${j}`);
+            logLines.push(`Recovered d = i*m + j = ${i}*${m} + ${j} = ${d}`);
+            return { recoveredD: d, ops, log: logLines.join('\n') };
+          }
+        }
+        gamma = pointAdd(gamma, neg_mG);
+        ops++;
+      }
+      return { recoveredD: null, ops, log: logLines.join('\n') };
+    }
+
+    // =========================================================================
+    // 5. UI RENDERING & CANVAS CHART
+    // =========================================================================
+    function initDropdown() {
+      const sel = document.getElementById('eccBaseSelect');
+      allCurvePoints.forEach((pt, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `G = (${pt.x}, ${pt.y})`;
+        if (pt.x === 1 && pt.y === 5) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function drawChi2Chart(scores, bestKey) {
+      const canvas = document.getElementById('chi2Canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const padL = 32, padR = 12, padT = 18, padB = 26;
+      const w = canvas.width - padL - padR;
+      const h = canvas.height - padT - padB;
+      const maxVal = Math.min(Math.max(...scores, 10), 600); // Cap extreme spikes for visual clarity
+      const barW = w / 26;
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px monospace';
+      ctx.fillText('χ²', 6, 14);
+
+      scores.forEach((val, g) => {
+        const capped = Math.min(val, maxVal);
+        const barH = Math.max(4, (capped / maxVal) * h);
+        const x = padL + g * barW + 2;
+        const y = padT + h - barH;
+
+        ctx.fillStyle = (g === bestKey) ? '#10b981' : '#94a3b8';
+        ctx.fillRect(x, y, barW - 4, barH);
+
+        ctx.fillStyle = (g === bestKey) ? '#065f46' : '#475569';
+        ctx.font = (g === bestKey) ? 'bold 10px monospace' : '9px monospace';
+        ctx.fillText(g, x + 1, canvas.height - 8);
+      });
+    }
+
+    function runAll() {
+      const plaintext = document.getElementById('sharedPlaintext').value || 'Test';
+      const gIdx = parseInt(document.getElementById('eccBaseSelect').value, 10) || 0;
+      const privD = Math.min(17, Math.max(1, parseInt(document.getElementById('eccPrivKey').value, 10) || 6));
+      const ephSeed = Math.min(17, Math.max(1, parseInt(document.getElementById('eccEphSeed').value, 10) || 11));
+      const caesarKey = mod(parseInt(document.getElementById('caesarKeyInput').value, 10) || 0, 26);
+
+      const G = allCurvePoints[gIdx];
+      const Q = scalarMult(privD, G);
+
+      // 1A. Run Toy ECC
+      const eccCipher = eccEncrypt(plaintext, G, Q, ephSeed);
+      const eccPlain = eccDecrypt(eccCipher, privD);
+      document.getElementById('eccKeyInfo').textContent =
+        `Public Key Q = ${privD}G = ${formatPt(Q)}`;
+
+      const previewBlocks = eccCipher.slice(0, 6).map(b => `(${formatPt(b.R)}, 0x${b.c.toString(16).padStart(2,'0')})`).join(', ');
+      document.getElementById('eccCipherOutput').textContent =
+        `Ciphertext (first 6 blocks of ${eccCipher.length}):\n${previewBlocks} ...`;
+      document.getElementById('eccDecryptedOutput').textContent =
+        `Decrypted (with d = ${privD}):\n"${eccPlain}"`;
+
+      // 1B. Run Caesar Cipher
+      const cCipher = caesarEncrypt(plaintext, caesarKey);
+      const cPlain = caesarDecrypt(cCipher, caesarKey);
+      document.getElementById('caesarKeyInfo').textContent =
+        `Caesar Shift Key: k = ${caesarKey} (E.g. 'A' -> '${caesarEncrypt('A', caesarKey)}')`;
+      document.getElementById('caesarCipherOutput').textContent =
+        `Caesar Ciphertext:\n"${cCipher}"`;
+      document.getElementById('caesarDecryptedOutput').textContent =
+        `Decrypted (with k = ${caesarKey}):\n"${cPlain}"`;
+
+      // 2A. Statistical Cryptanalysis on Current Message
+      const chi2Res = breakCaesarChi2(cCipher);
+      const freqKey = breakCaesarMaxFreq(cCipher);
+      const biKey = breakCaesarBigrams(cCipher);
+
+      document.getElementById('caesarAttackSummary').textContent = [
+        `True Key: k = ${caesarKey}`,
+        `• Chi-Squared (χ²) Attack : k = ${chi2Res.bestKey} (min χ² = ${chi2Res.minChi2.toFixed(2)}) -> ${chi2Res.bestKey === caesarKey ? 'SUCCESS' : 'FAIL'}`,
+        `• Max-Freq ('E') Heuristic: k = ${freqKey} -> ${freqKey === caesarKey ? 'SUCCESS' : 'FAIL'}`,
+        `• Bigram Log-Likelihood   : k = ${biKey} -> ${biKey === caesarKey ? 'SUCCESS' : 'FAIL'}`,
+        `Recovered Plaintext: "${chi2Res.plaintext}"`
+      ].join('\n');
+
+      drawChi2Chart(chi2Res.scores, chi2Res.bestKey);
+
+      // 2B. Multi-Length Benchmark Table
+      document.getElementById('benchKeyLabel').textContent = caesarKey;
+      const samples = [
+        { label: 'Very Short (5 chars)', text: 'Jazzy' },
+        { label: 'Short (19 chars)', text: 'This tiny test text' },
+        { label: 'Medium (67 chars)', text: plaintext },
+        { label: 'Long (235 chars)', text: 'In cryptography, a Caesar cipher, also known as shift cipher, is one of the simplest and most widely known encryption techniques. It is a type of substitution cipher in which each letter in the plaintext is replaced by a fixed shift.' }
+      ];
+
+      const benchBody = document.getElementById('lengthBenchTable');
+      benchBody.innerHTML = '';
+      samples.forEach(s => {
+        const enc = caesarEncrypt(s.text, caesarKey);
+        const kChi = breakCaesarChi2(enc).bestKey;
+        const kFreq = breakCaesarMaxFreq(enc);
+        const kBi = breakCaesarBigrams(enc);
+
+        const badge = (k) => k === caesarKey
+          ? `<span class="badge-ok">k=${k} ✓</span>`
+          : `<span class="badge-err">k=${k} ✗</span>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${s.label}</strong><br><span style="font-size:12px;color:#555;">"${s.text.slice(0, 28)}${s.text.length > 28 ? '...' : ''}"</span></td>
+          <td>${badge(kChi)}</td>
+          <td>${badge(kFreq)}</td>
+          <td>${badge(kBi)}</td>
+        `;
+        benchBody.appendChild(tr);
+      });
+
+      // 3. ECC Key-Space Attacks
+      const linAttack = attackEccLinear(G, Q, 18);
+      document.getElementById('eccBruteBox').innerHTML =
+        `<strong>Linear Search Result:</strong> Found Private Key <code>d = ${linAttack.recoveredD}</code> in <strong>${linAttack.ops} point additions</strong>.`;
+
+      const atkBody = document.getElementById('eccAttackTable');
+      atkBody.innerHTML = '';
+      linAttack.trace.forEach(row => {
+        const tr = document.createElement('tr');
+        if (row.match) tr.className = 'highlight-row';
+        tr.innerHTML = `
+          <td>d' = ${row.d}</td>
+          <td>${formatPt(row.pt)}</td>
+          <td>${row.match ? 'MATCH == Q ✓' : 'No'}</td>
+        `;
+        atkBody.appendChild(tr);
+      });
+
+      const bsgsAttack = attackEccBSGS(G, Q, 18);
+      document.getElementById('eccBsgsBox').innerHTML =
+        `<strong>BSGS O(√n) Result:</strong> Found Private Key <code>d = ${bsgsAttack.recoveredD}</code> in <strong>${bsgsAttack.ops} curve ops</strong>.`;
+      document.getElementById('eccBsgsLog').textContent = bsgsAttack.log;
+
+      const crackedPlaintext = eccDecrypt(eccCipher, linAttack.recoveredD);
+      document.getElementById('eccAttackDecrypted').textContent =
+        `Attacker Decrypted Message (using stolen key d = ${linAttack.recoveredD}): "${crackedPlaintext}"`;
+    }
+
+    initDropdown();
+    runAll();
+  </script>
+</body>
+</html>
