@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HMWK 2 — Penetration Scores: LLN &amp; CLT</title>
+<style>
+:root{--bg:#f8f9fb;--card:#fff;--bd:#dfe3ea;--tx:#1a2236;--mu:#5b6578;--code:#eef0f4;--gbg:#edfdf5;--gbd:#2bb673;--gtx:#126b45;--bbg:#eef4ff;--bbd:#3b6fe0;--btx:#1d4fb5;--c1:#3b6fe0;--c2:#e0703b;--grid:#e6e9ef;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10141c;--card:#171c27;--bd:#2a3242;--tx:#e8ecf4;--mu:#9aa5ba;--code:#232a39;--gbg:#10261c;--gbd:#2bb673;--gtx:#7fe0b0;--bbg:#12203d;--bbd:#4f83f0;--btx:#a9c4ff;--c1:#6c97f5;--c2:#f0905c;--grid:#2a3242;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141c;--card:#171c27;--bd:#2a3242;--tx:#e8ecf4;--mu:#9aa5ba;--code:#232a39;--gbg:#10261c;--gbd:#2bb673;--gtx:#7fe0b0;--bbg:#12203d;--bbd:#4f83f0;--btx:#a9c4ff;--c1:#6c97f5;--c2:#f0905c;--grid:#2a3242;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font:16px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif}
+main{max-width:1240px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:2.1rem;line-height:1.25;margin:0 0 18px}
+h2{font-size:1.55rem;margin:0 0 16px}
+h3{font-size:1.25rem;margin:0 0 4px}
+h4{font-size:.95rem;margin:22px 0 8px}
+.sub{margin:0 0 22px}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font:.88em Consolas,monospace}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:26px 28px;margin-bottom:24px}
+.ctl{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:.92rem}
+input{font:inherit;padding:9px 12px;border:1px solid var(--bd);border-radius:7px;background:var(--card);color:var(--tx);width:130px}
+input#ns{width:230px}
+input:focus-visible,button:focus-visible{outline:2px solid var(--c1);outline-offset:2px}
+button{font:inherit;font-weight:600;padding:10px 20px;border:0;border-radius:7px;background:var(--c1);color:#fff;cursor:pointer}
+.tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+.tabs button{background:var(--card);color:var(--tx);border:1px solid var(--bd);padding:7px 14px}
+.tabs button[aria-pressed="true"]{background:var(--c1);color:#fff;border-color:var(--c1)}
+.box{border:2px solid;border-radius:8px;padding:12px 16px;margin-top:14px;font-weight:600}
+.box.g{background:var(--gbg);border-color:var(--gbd);color:var(--gtx)}
+.box.b{background:var(--bbg);border-color:var(--bbd);color:var(--btx)}
+.mut{color:var(--mu);font-size:.9rem;margin:0}
+#msg{color:#c0392b;font-weight:600;min-height:1.4em;margin:10px 0 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.pan{min-width:0}
+.hg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ct{font:.82rem Consolas,monospace;color:var(--mu);margin:8px 0 2px}
+canvas{display:block;width:100%}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font:.8rem Consolas,monospace}
+th,td{border:1px solid var(--bd);padding:5px 7px;text-align:right;white-space:nowrap}
+th{background:var(--code)}
+ul{padding-left:22px}li{margin-bottom:8px}
+@media (max-width:900px){.cols{grid-template-columns:1fr}.card{padding:20px 16px}h1{font-size:1.6rem}}
+</style>
+</head>
+<body>
+<main>
+<h1>HMWK 2 — Penetration Scores: Law of Large Numbers &amp; Central Limit Theorem</h1>
+<p class="sub"><b>Model:</b> n systems, m attackers. Attacker j scores <code>X₁, X₂, …, Xₙ</code> (i.i.d.) on the n systems. Bernoulli: <code>Xᵢ ∈ {0,1}</code>, <code>P(Xᵢ=1)=p</code>. Rademacher: <code>Xᵢ ∈ {−1,+1}</code>, <code>P(±1)=½</code>.</p>
+
+<section class="card">
+<h2>1. Simulation Setup</h2>
+<div class="ctl">
+<label>Attackers m<input id="m" type="number" value="1000" min="10" max="5000"></label>
+<label>System sizes n (up to 6, comma-separated)<input id="ns" value="10, 100, 1000, 10000"></label>
+<label>Bernoulli p<input id="p" type="number" value="0.3" step="0.05" min="0.01" max="0.99"></label>
+<label>LLN tolerance ε<input id="eps" type="number" value="0.05" step="0.01" min="0.001"></label>
+<label>Random seed<input id="seed" type="number" value="42"></label>
+<button id="run">Run simulation</button>
+</div>
+<p id="msg" role="status"></p>
+<p class="mut">Theory: <code>E[Sₙ]=nμ</code>, <code>Var(Sₙ)=nσ²</code>, <code>Var(Sₙ/n)=σ²/n</code>, <code>Var(Sₙ/√n)=σ²</code>. Bernoulli: μ=p, σ²=p(1−p). Rademacher: μ=0, σ²=1.</p>
+<div id="kg" class="box g"></div>
+<div id="kb" class="box b"></div>
+</section>
+
+<section class="card">
+<h2>2. Trajectories, Distributions &amp; Convergence</h2>
+<div class="tabs"><b>Histograms show:</b>
+<button data-q="tot" aria-pressed="true">Total Sₙ</button>
+<button data-q="avg" aria-pressed="false">Average Sₙ/n</button>
+<button data-q="nrm" aria-pressed="false">Normalized Sₙ/√n</button></div>
+<div id="cols" class="cols"></div>
+</section>
+
+<section class="card">
+<h2>3. Interpretation</h2>
+<ul>
+<li><b>Meaning of n and m.</b> Each of the n systems gives an attacker one chance to score. Sₙ is the attacker’s total penetration score (Bernoulli: number of systems breached; Rademacher: breaches minus repelled attempts). The m attackers are independent replications, i.e. the m trajectories.</li>
+<li><b>Law of Large Numbers.</b> Sₙ/n converges in probability to μ (p for Bernoulli, 0 for Rademacher). Chebyshev gives <code>P(|Sₙ/n − μ| &gt; ε) ≤ σ²/(nε²)</code>. The empirical curves in the LLN plots fall to 0 and stay below this bound: in a large system, an attacker’s average success rate becomes predictable.</li>
+<li><b>Variance under the three normalizations.</b> Var(Sₙ) = nσ² grows without bound, Var(Sₙ/n) = σ²/n shrinks to 0, and only Var(Sₙ/√n) = σ² stays constant. √n is therefore the scale of typical fluctuations of the total score around its mean, which the table confirms (empirical vs. theoretical).</li>
+<li><b>Central Limit Theorem.</b> In the Rademacher case μ=0 and σ=1, so Sₙ/√n → N(0,1) in distribution. The histograms approach the normal density, the Q–Q plot approaches the diagonal and the Kolmogorov–Smirnov distance decreases with n. For Bernoulli with p≠0 the mean of Sₙ/√n equals √n·p and diverges; centering is required, and the standardized score (Sₙ − np)/√(np(1−p)) is the one that converges to N(0,1).</li>
+<li><b>System size n.</b> A larger n makes the average penetration rate more precise (spread ∝ 1/√n) while the absolute spread of the total score grows (∝ √n). Large systems are predictable in rate but not in absolute count.</li>
+<li><b>Number of attackers m.</b> m does not change the distribution of one attacker’s score. It improves the accuracy of the simulated distributions (Monte Carlo error ∝ 1/√m) and scales the aggregate: the sum over all attackers has mean mnμ and variance mnσ². The aggregate Rademacher score stays centered at 0 with spread √(mn).</li>
+</ul>
+</section>
+</main>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const col = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const MODELS = [
+  {id: "b", name: "A. Bernoulli model", desc: "Xᵢ ∈ {0,1}, P(Xᵢ=1)=p", lat: 1},
+  {id: "r", name: "B. Rademacher model", desc: "Xᵢ ∈ {−1,+1}, P(±1)=½", lat: 2}
+];
+let ST = null, QTY = "tot";
+
+function rng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function erf(x) { const s = x < 0 ? -1 : 1; x = Math.abs(x); const t = 1 / (1 + .3275911 * x); return s * (1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - .284496736) * t + .254829592) * t * Math.exp(-x * x)); }
+const Phi = z => .5 * (1 + erf(z / Math.SQRT2));
+function invPhi(p) { if (p > .5) return -invPhi(1 - p); const t = Math.sqrt(-2 * Math.log(p)); return -(t - (2.515517 + .802853 * t + .010328 * t * t) / (1 + 1.432788 * t + .189269 * t * t + .001308 * t ** 3)); }
+const fmt = v => { const a = Math.abs(v); return a >= 1e4 ? v.toExponential(0) : a >= 100 ? v.toFixed(0) : a >= 1 ? String(+v.toFixed(1)) : String(+v.toPrecision(2)); };
+const f3 = v => String(+v.toPrecision(3));
+
+function grid(nmax, cps) {
+  const s = new Set(cps);
+  for (let i = 0; i <= 30; i++) s.add(Math.max(1, Math.round(Math.pow(nmax, i / 30))));
+  return [...s].sort((a, b) => a - b);
+}
+
+function simulate(model, p, m, G, R, T) {
+  const nmax = G[G.length - 1], S = [], paths = [], step = Math.max(1, Math.floor(nmax / 400));
+  for (let a = 0; a < m; a++) {
+    let s = 0, gi = 0; const row = new Float64Array(G.length), path = a < T ? [] : null;
+    for (let k = 1; k <= nmax; k++) {
+      const u = R();
+      s += model === "b" ? (u < p ? 1 : 0) : (u < .5 ? -1 : 1);
+      if (k === G[gi]) row[gi++] = s;
+      if (path && (k <= 60 || k % step === 0 || k === nmax)) path.push([k, s]);
+    }
+    S.push(row); if (path) paths.push(path);
+  }
+  return {S, paths};
+}
+
+function stats(r, j, n) {
+  const v = r.S.map(row => row[j]), m = v.length;
+  const z = v.map(s => (s - n * r.mu) / Math.sqrt(r.s2 * n)).sort((a, b) => a - b);
+  const vr = a => { const mu = a.reduce((x, y) => x + y, 0) / m; return a.reduce((x, y) => x + (y - mu) ** 2, 0) / (m - 1); };
+  let ks = 0; z.forEach((x, i) => { const F = Phi(x); ks = Math.max(ks, F - i / m, (i + 1) / m - F); });
+  let out = 0; v.forEach(s => { if (Math.abs(s / n - r.mu) > ST.eps) out++; });
+  return {v, z, vS: vr(v), vA: vr(v.map(s => s / n)), vN: vr(v.map(s => s / Math.sqrt(n))), ks, pe: out / m};
+}
+
+/* ---------- canvas helpers ---------- */
+function cv(parent, h) {
+  const c = document.createElement("canvas"); c.style.height = h + "px"; parent.appendChild(c);
+  const d = devicePixelRatio || 1, w = c.clientWidth; c.width = w * d; c.height = h * d;
+  const g = c.getContext("2d"); g.scale(d, d); return {g, w, h};
+}
+function axes(o) {
+  const {g, w, h} = cv(o.parent, o.h), L = 44, Rm = 10, Tp = 8, B = 24;
+  const fx = o.logx ? Math.log10 : v => v, x0 = fx(o.x[0]), x1 = fx(o.x[1]);
+  const X = v => L + (fx(v) - x0) / (x1 - x0 || 1) * (w - L - Rm);
+  const Y = v => Tp + (1 - (v - o.y[0]) / (o.y[1] - o.y[0] || 1)) * (h - Tp - B);
+  g.font = "11px system-ui"; g.fillStyle = col("--mu"); g.strokeStyle = col("--grid"); g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const v = o.y[0] + (o.y[1] - o.y[0]) * i / 4, y = Y(v); g.beginPath(); g.moveTo(L, y); g.lineTo(w - Rm, y); g.stroke(); g.textAlign = "right"; g.fillText(fmt(v), L - 5, y + 4); }
+  g.textAlign = "center";
+  const tick = (v, t) => { const x = X(v); g.beginPath(); g.moveTo(x, Tp); g.lineTo(x, h - B); g.stroke(); g.fillText(t, x, h - 8); };
+  if (o.logx) { for (let e = Math.ceil(x0); e <= Math.floor(x1); e++) tick(10 ** e, e === 0 ? "1" : e === 1 ? "10" : "10^" + e); }
+  else for (let i = 0; i <= 4; i++) { const v = o.x[0] + (o.x[1] - o.x[0]) * i / 4; tick(v, fmt(v)); }
+  g.save(); g.beginPath(); g.rect(L, Tp, w - L - Rm, h - Tp - B); g.clip();
+  return {g, X, Y, w, h};
+}
+function line(A, pts, color, lw, dash) {
+  const g = A.g; g.strokeStyle = color; g.lineWidth = lw; g.setLineDash(dash || []); g.beginPath();
+  pts.forEach(([x, y], i) => i ? g.lineTo(A.X(x), A.Y(y)) : g.moveTo(A.X(x), A.Y(y))); g.stroke(); g.setLineDash([]);
+}
+function cell(parent, title) {
+  const d = document.createElement("div"); d.innerHTML = '<div class="ct">' + title + "</div>"; parent.appendChild(d); return d;
+}
+
+/* ---------- charts ---------- */
+function drawTraj(r, el) {
+  const nmax = ST.nmax, mu = r.mu, s2 = r.s2;
+  const defs = [
+    {t: "Total score Sₙ", f: (s, k) => s, mid: k => mu * k, band: k => 2 * Math.sqrt(s2 * k)},
+    {t: "Average score Sₙ/n", f: (s, k) => s / k, mid: k => mu, band: k => 2 * Math.sqrt(s2 / k)},
+    {t: "Normalized score Sₙ/√n", f: (s, k) => s / Math.sqrt(k), mid: k => mu * Math.sqrt(k), band: k => 2 * Math.sqrt(s2)}
+  ];
+  defs.forEach(D => {
+    const wrap = cell(el, D.t + " — dashed: mean ± 2 SD");
+    let lo = Infinity, hi = -Infinity;
+    r.paths.forEach(P => P.forEach(([k, s]) => { const y = D.f(s, k); lo = Math.min(lo, y); hi = Math.max(hi, y); }));
+    lo = Math.min(lo, D.mid(nmax) - D.band(nmax)); hi = Math.max(hi, D.mid(nmax) + D.band(nmax));
+    const pad = (hi - lo) * .05 || 1;
+    const A = axes({parent: wrap, h: 150, x: [1, nmax], y: [lo - pad, hi + pad], logx: true});
+    A.g.globalAlpha = .4;
+    r.paths.forEach(P => line(A, P.map(([k, s]) => [k, D.f(s, k)]), col("--c1"), 1));
+    A.g.globalAlpha = 1;
+    [1, 0, -1].forEach(sg => {
+      const pts = []; for (let i = 0; i <= 120; i++) { const k = Math.pow(nmax, i / 120); pts.push([k, D.mid(k) + sg * D.band(k)]); }
+      line(A, pts, col("--c2"), 1.6, sg ? [5, 4] : []);
+    });
+    A.g.restore();
+  });
+}
+
+function drawHist(r) {
+  const el = $("#hs" + r.i); el.innerHTML = "";
+  ST.ns.forEach((n, jj) => {
+    const st = r.st[jj], sc = QTY === "tot" ? 1 : QTY === "avg" ? 1 / n : 1 / Math.sqrt(n);
+    const data = st.v.map(s => s * sc), mu = r.mu * n * sc, sd = Math.sqrt(r.s2 * n) * sc, lat = r.M.lat * sc;
+    const lo = Math.min(...data), hi = Math.max(...data);
+    const w = lat * Math.max(1, Math.ceil((hi - lo) / lat / 24)), s0 = lo - lat / 2, nb = Math.floor((hi - s0) / w) + 1, cnt = new Array(nb).fill(0);
+    data.forEach(x => cnt[Math.min(nb - 1, Math.floor((x - s0) / w))]++);
+    const dens = cnt.map(c => c / (ST.m * w)), pdf = x => Math.exp(-((x - mu) ** 2) / (2 * sd * sd)) / (sd * Math.sqrt(2 * Math.PI));
+    const xl = Math.min(s0, mu - 3.5 * sd), xh = Math.max(s0 + nb * w, mu + 3.5 * sd);
+    const A = axes({parent: cell(el, "n = " + n), h: 130, x: [xl, xh], y: [0, Math.max(...dens, pdf(mu)) * 1.1]});
+    A.g.fillStyle = col("--c1"); A.g.globalAlpha = .55;
+    dens.forEach((d, i) => { const x1 = A.X(s0 + i * w), x2 = A.X(s0 + (i + 1) * w), y = A.Y(d); A.g.fillRect(x1 + .5, y, Math.max(1, x2 - x1 - 1), A.Y(0) - y); });
+    A.g.globalAlpha = 1;
+    const pts = []; for (let i = 0; i <= 120; i++) { const x = xl + (xh - xl) * i / 120; pts.push([x, pdf(x)]); }
+    line(A, pts, col("--c2"), 2); A.g.restore();
+  });
+}
+
+function drawLLN(r) {
+  const el = cell($("#ll" + r.i), "solid: empirical P(|Sₙ/n − μ| > ε) · dashed: Chebyshev bound σ²/(nε²)");
+  const emp = [], bnd = [];
+  ST.G.forEach((n, j) => { let c = 0; r.S.forEach(row => { if (Math.abs(row[j] / n - r.mu) > ST.eps) c++; }); emp.push([n, c / ST.m]); bnd.push([n, Math.min(1, r.s2 / (n * ST.eps ** 2))]); });
+  const A = axes({parent: el, h: 170, x: [1, ST.nmax], y: [0, 1], logx: true});
+  line(A, bnd, col("--c2"), 1.8, [5, 4]); line(A, emp, col("--c1"), 2.2); A.g.restore();
+}
+
+function drawQQ(r) {
+  const st = r.st[r.st.length - 1], z = st.z, m = z.length, n = ST.ns[ST.ns.length - 1];
+  const el = cell($("#qq" + r.i), "standardized Sₙ at n = " + n + " vs. N(0,1) quantiles");
+  const A = axes({parent: el, h: 210, x: [-3.5, 3.5], y: [-3.5, 3.5]});
+  line(A, [[-3.5, -3.5], [3.5, 3.5]], col("--c2"), 1.6, [5, 4]);
+  A.g.fillStyle = col("--c1"); A.g.globalAlpha = .6;
+  const step = Math.max(1, Math.floor(m / 300));
+  for (let i = 0; i < m; i += step) { A.g.beginPath(); A.g.arc(A.X(invPhi((i + .5) / m)), A.Y(z[i]), 2.2, 0, 7); A.g.fill(); }
+  A.g.restore();
+}
+
+/* ---------- page assembly ---------- */
+function draw() {
+  const cols = $("#cols"); cols.innerHTML = "";
+  ST.res.forEach((r, i) => {
+    r.i = i; r.st = ST.ns.map(n => stats(r, ST.G.indexOf(n), n));
+    const rows = ST.ns.map((n, k) => { const s = r.st[k];
+      return "<tr><td>" + n + "</td><td>" + f3(s.vS) + " / " + f3(r.s2 * n) + "</td><td>" + f3(s.vA) + " / " + f3(r.s2 / n) + "</td><td>" + f3(s.vN) + " / " + f3(r.s2) + "</td><td>" + s.ks.toFixed(3) + "</td><td>" + s.pe.toFixed(3) + "</td></tr>"; }).join("");
+    const d = document.createElement("div"); d.className = "pan";
+    d.innerHTML = "<h3>" + r.M.name + "</h3><p class=\"mut\">" + r.M.desc + (r.M.id === "b" ? ", p = " + ST.p : "") + "; μ = " + r.mu + ", σ² = " + f3(r.s2) + "</p>" +
+      "<h4>Sample trajectories (first " + r.paths.length + " of m = " + ST.m + " attackers; x-axis: n, log scale)</h4><div id=\"tr" + i + "\"></div>" +
+      "<h4>Distributions at the chosen n (histogram vs. normal density)</h4><div id=\"hs" + i + "\" class=\"hg\"></div>" +
+      "<h4>Variances (empirical / theoretical) &amp; CLT diagnostics</h4><div class=\"tw\"><table><tr><th>n</th><th>Var(Sₙ)</th><th>Var(Sₙ/n)</th><th>Var(Sₙ/√n)</th><th>KS vs N(0,1)</th><th>P(|Sₙ/n−μ|&gt;ε)</th></tr>" + rows + "</table></div>" +
+      "<p class=\"mut\">KS = Kolmogorov–Smirnov distance of the standardized score (Sₙ−nμ)/(σ√n) to N(0,1).</p>" +
+      "<h4>Law of Large Numbers: convergence in probability of Sₙ/n</h4><div id=\"ll" + i + "\"></div>" +
+      "<h4>Q–Q plot (CLT check)</h4><div id=\"qq" + i + "\"></div>";
+    cols.appendChild(d);
+    drawTraj(r, $("#tr" + i)); drawHist(r); drawLLN(r); drawQQ(r);
+  });
+  const [b, r] = ST.res, k = ST.ns.length - 1, sb = b.st[k], sr = r.st[k], n = ST.nmax;
+  $("#kg").textContent = "LLN at n = " + n + ", ε = " + ST.eps + ": Bernoulli P(|Sₙ/n − p| > ε) = " + sb.pe.toFixed(3) + " (Chebyshev ≤ " + f3(Math.min(1, b.s2 / (n * ST.eps ** 2))) + ") · Rademacher P(|Sₙ/n| > ε) = " + sr.pe.toFixed(3) + " (Chebyshev ≤ " + f3(Math.min(1, 1 / (n * ST.eps ** 2))) + ")";
+  $("#kb").textContent = "CLT at n = " + n + ": Rademacher Var(Sₙ/√n) = " + f3(sr.vN) + " (theory 1), KS distance to N(0,1) = " + sr.ks.toFixed(3) + " · Bernoulli standardized KS = " + sb.ks.toFixed(3);
+}
+
+function run() {
+  const m = Math.max(10, Math.min(5000, +$("#m").value | 0)), p = +$("#p").value, eps = +$("#eps").value, seed = +$("#seed").value | 0, msg = $("#msg");
+  let ns = $("#ns").value.split(/[ ,;]+/).map(Number).filter(v => Number.isInteger(v) && v >= 1);
+  ns = [...new Set(ns)].sort((a, b) => a - b).slice(0, 6);
+  if (!(p > 0 && p < 1) || !(eps > 0) || !ns.length) { msg.textContent = "Enter 0 < p < 1, ε > 0 and at least one integer n ≥ 1."; return; }
+  const nmax = ns[ns.length - 1];
+  if (m * nmax > 6e7) { msg.textContent = "m × n is too large (limit 6·10⁷ steps per model). Reduce m or the largest n."; return; }
+  msg.textContent = "";
+  const G = grid(nmax, ns);
+  ST = {m, p, eps, ns, G, nmax, res: MODELS.map((M, i) => {
+    const mu = M.id === "b" ? p : 0, s2 = M.id === "b" ? p * (1 - p) : 1;
+    return Object.assign({M, mu, s2}, simulate(M.id, p, m, G, rng(seed + i * 7919 + 1), 25));
+  })};
+  draw();
+}
+
+$("#run").addEventListener("click", run);
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  QTY = b.dataset.q; document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  if (ST) ST.res.forEach(drawHist);
+}));
+matchMedia("(prefers-color-scheme:dark)").addEventListener("change", () => ST && draw());
+run();
+</script>
+</body>
+</html>
