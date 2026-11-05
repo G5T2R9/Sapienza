@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HMWK — Welford’s Recurrences & Sampling Statistics</title>
+<style>
+:root{
+  --bg:#f8fafc; --card:#ffffff; --step:#f8fafc; --line:#e2e8f0; --text:#1e293b; --muted:#475569;
+  --head:#111827; --accent:#2563eb; --stephead:#1e3a8a; --code:#f1f5f9; --good:#15803d;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f172a; --card:#1e293b; --step:#172033; --line:#334155; --text:#e2e8f0; --muted:#94a3b8;
+    --head:#f8fafc; --accent:#3b82f6; --stephead:#93c5fd; --code:#0f172a; --good:#4ade80;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f172a; --card:#1e293b; --step:#172033; --line:#334155; --text:#e2e8f0; --muted:#94a3b8;
+  --head:#f8fafc; --accent:#3b82f6; --stephead:#93c5fd; --code:#0f172a; --good:#4ade80; color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:32px 20px 64px}
+h1{font-size:clamp(1.8rem,4.5vw,2.6rem);line-height:1.15;margin:0 0 20px;color:var(--head)}
+h2{font-size:1.6rem;margin:0 0 16px;color:var(--head)}
+.pipeline{margin:0 0 24px;font-weight:600;color:var(--head)}
+code,.mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
+.pipeline code{font-weight:400;font-size:.85rem;background:var(--code);padding:3px 8px;border-radius:5px;margin-left:6px;display:inline-block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;margin-bottom:28px}
+.step{background:var(--step);border-left:5px solid var(--accent);border-radius:4px 10px 10px 4px;padding:16px 20px;margin:16px 0}
+.step h3{margin:0 0 8px;font-size:1.02rem;color:var(--stephead)}
+.step p{margin:6px 0}
+.box{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin:10px 0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92rem;overflow-x:auto;white-space:pre}
+.eq{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin:10px 0;overflow-x:auto;font-family:"Cambria Math",Cambria,Georgia,serif;font-size:1.05rem;line-height:1.9;white-space:nowrap}
+.task{color:var(--muted);font-size:.95rem;margin:0 0 12px}
+.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin:12px 0 4px}
+label{display:block;font-weight:600;margin-bottom:6px}
+input,select{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:9px 12px}
+input{width:120px}
+button{font:inherit;font-weight:600;color:#fff;background:var(--accent);border:0;border-radius:6px;padding:10px 18px;cursor:pointer}
+button:hover{filter:brightness(1.1)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:560px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--stephead);font-weight:600}
+td.ref{color:var(--good);font-weight:600}
+ul{margin:6px 0 6px 20px;padding:0}
+li{margin:5px 0}
+.small{font-size:.88rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<h1>HMWK — Welford’s Recurrence Formulas & Sampling Statistics</h1>
+<p class="pipeline">Pipeline: <code>Scores x₁…xₙ → Welford (M, SS) → x̄, s² → average over m hackers → compare with μ, σ²</code></p>
+
+<!-- ============ EX. 1 ============ -->
+<section class="card">
+  <h2>Ex. 1 – Welford’s Recurrence Formulas</h2>
+  <p class="task">Derive the recurrences for the sum of squares (SS) and the variance, following Knuth’s approach for the mean, and write the code (core logic: about 3 lines).</p>
+
+  <div class="step">
+    <h3>Step 1: Knuth’s recurrence for the mean</h3>
+    <p>With M<sub>k</sub> = (x₁+…+x<sub>k</sub>)/k we have k·M<sub>k</sub> = (k−1)·M<sub>k−1</sub> + x<sub>k</sub>, hence:</p>
+    <div class="eq">M<sub>k</sub> = M<sub>k−1</sub> + (x<sub>k</sub> − M<sub>k−1</sub>) / k</div>
+    <p>Define the innovation δ<sub>k</sub> = x<sub>k</sub> − M<sub>k−1</sub>. Then M<sub>k</sub> = M<sub>k−1</sub> + δ<sub>k</sub>/k and x<sub>k</sub> − M<sub>k</sub> = δ<sub>k</sub>·(k−1)/k.</p>
+  </div>
+
+  <div class="step">
+    <h3>Step 2: Recurrence for the sum of squares SS<sub>k</sub> = Σ (x<sub>i</sub> − M<sub>k</sub>)²</h3>
+    <p>Use the shortcut SS<sub>k</sub> = Σ x<sub>i</sub>² − k·M<sub>k</sub>², and subtract the same expression for k−1:</p>
+    <div class="eq">SS<sub>k</sub> − SS<sub>k−1</sub> = x<sub>k</sub>² − k·M<sub>k</sub>² + (k−1)·M<sub>k−1</sub>²</div>
+    <p>Insert M<sub>k</sub> = M<sub>k−1</sub> + δ/k (δ = δ<sub>k</sub>):</p>
+    <div class="eq">= x<sub>k</sub>² − k·(M<sub>k−1</sub> + δ/k)² + (k−1)·M<sub>k−1</sub>²<br>
+      = x<sub>k</sub>² − M<sub>k−1</sub>² − 2·M<sub>k−1</sub>·δ − δ²/k</div>
+    <p>Since x<sub>k</sub>² − M<sub>k−1</sub>² = δ·(δ + 2·M<sub>k−1</sub>), the cross terms cancel:</p>
+    <div class="eq">SS<sub>k</sub> − SS<sub>k−1</sub> = δ² − δ²/k = δ²·(k−1)/k = δ<sub>k</sub> · (x<sub>k</sub> − M<sub>k</sub>)</div>
+    <div class="eq"><b>SS<sub>k</sub> = SS<sub>k−1</sub> + (x<sub>k</sub> − M<sub>k−1</sub>)(x<sub>k</sub> − M<sub>k</sub>)</b>,  with SS₀ = 0</div>
+  </div>
+
+  <div class="step">
+    <h3>Step 3: Recurrence for the variance</h3>
+    <p>The unbiased sample variance is s<sub>k</sub>² = SS<sub>k</sub>/(k−1) for k ≥ 2. From Step 2, SS<sub>k</sub> = (k−2)·s<sub>k−1</sub>² + δ²·(k−1)/k. Dividing by (k−1):</p>
+    <div class="eq"><b>s<sub>k</sub>² = ((k−2)/(k−1)) · s<sub>k−1</sub>² + (x<sub>k</sub> − M<sub>k−1</sub>)² / k</b>,  k ≥ 2</div>
+    <p>The population (biased) version is simply σ̂<sub>k</sub>² = SS<sub>k</sub>/k. Both need only one pass and O(1) memory, and avoid the cancellation errors of Σx² − k·M².</p>
+  </div>
+
+  <div class="step">
+    <h3>Step 4: Code (Python) — core logic in 3 lines</h3>
+    <div class="box">M, SS = 0.0, 0.0
+for k, x in enumerate(xs, start=1):
+    d = x - M                # δ_k
+    M += d / k               # mean
+    SS += d * (x - M)        # sum of squares
+var = SS / (k - 1)           # unbiased sample variance</div>
+    <p class="small">The three lines inside the loop (<code>d</code>, <code>M</code>, <code>SS</code>) are the whole recurrence; the same code is used in the simulation below.</p>
+  </div>
+</section>
+
+<!-- ============ EX. 2 ============ -->
+<section class="card">
+  <h2>Ex. 2 – Sampling Mean and Variance</h2>
+  <p class="task">m hackers each attack n systems and receive a score from 0 to 10 per system. For each hacker, Welford gives the sampling mean and variance; then both are averaged over the m hackers and compared with μ and σ².</p>
+
+  <div class="controls">
+    <div>
+      <label for="dist">Score distribution</label>
+      <select id="dist">
+        <option value="b03">Binomial(10, 0.3)</option>
+        <option value="b05">Binomial(10, 0.5)</option>
+        <option value="u">Discrete uniform {0…10}</option>
+      </select>
+    </div>
+    <div><label for="m">Hackers (m)</label><input id="m" type="number" min="2" max="5000" value="1000"></div>
+    <div><label for="n">Systems per hacker (n)</label><input id="n" type="number" min="2" max="10000" value="20"></div>
+    <button id="run" type="button">Run experiment</button>
+  </div>
+
+  <div class="step">
+    <h3>Step 1: Theoretical values of the chosen distribution</h3>
+    <div class="box" id="theory"></div>
+  </div>
+
+  <div class="step">
+    <h3>Step 2: Result for the chosen n (Welford on each hacker’s trajectory)</h3>
+    <div class="tbl"><table id="res"></table></div>
+  </div>
+
+  <div class="step">
+    <h3>Step 3: Repeat for different n (same m, same distribution)</h3>
+    <div class="tbl"><table id="sweep"></table></div>
+    <p class="small">SD = standard deviation across the m hackers. “Theory SD(x̄)” = σ/√n.</p>
+  </div>
+
+  <div class="step">
+    <h3>Step 4: Conclusions</h3>
+    <ul>
+      <li><b>Sampling mean is unbiased.</b> The average of the sampling means lands on μ for every n: E[x̄] = μ.</li>
+      <li><b>Sampling variance needs n−1.</b> Dividing SS by n−1 gives an average close to σ² (unbiased). Dividing by n underestimates σ² by the factor (n−1)/n, which is clearly visible for small n.</li>
+      <li><b>Why this matters in inferential statistics.</b> μ and σ² are unknown in practice and only one trajectory is available. These results show that x̄ and s² are valid estimators of the unknown parameters; the spread of x̄ (standard error σ/√n) is what underlies confidence intervals and hypothesis tests.</li>
+      <li><b>Effect of n.</b> Increasing n does not change the centre of the estimates (still μ and σ²), but their variability shrinks: SD of the sampling means falls like σ/√n, and the SD of the sampling variances falls at a similar 1/√n rate. Larger n gives more reliable single estimates (consistency).</li>
+    </ul>
+  </div>
+</section>
+</main>
+
+<script>
+// ---- distributions on {0..10} as probability mass functions ----
+function binom(p){
+  const C=[1,10,45,120,210,252,210,120,45,10,1];
+  return C.map((c,k)=>c*Math.pow(p,k)*Math.pow(1-p,10-k));
+}
+const PMF={ b03:binom(0.3), b05:binom(0.5), u:Array(11).fill(1/11) };
+
+function theory(pmf){
+  const mu=pmf.reduce((s,p,k)=>s+k*p,0);
+  const v=pmf.reduce((s,p,k)=>s+p*(k-mu)*(k-mu),0);
+  return {mu,v};
+}
+function sampler(pmf){
+  const cdf=[];pmf.reduce((s,p,i)=>(cdf[i]=s+p),0);
+  return ()=>{const r=Math.random();let k=0;while(k<10&&r>cdf[k])k++;return k;};
+}
+
+// ---- one hacker: n scores, Welford recurrence (core = 3 lines) ----
+function hacker(draw,n){
+  let M=0,SS=0;
+  for(let k=1;k<=n;k++){
+    const x=draw(), d=x-M;
+    M+=d/k;
+    SS+=d*(x-M);
+  }
+  return {mean:M, varU:SS/(n-1), varB:SS/n};
+}
+
+// ---- experiment: m hackers, each with n scores ----
+function experiment(pmf,m,n){
+  const draw=sampler(pmf);
+  let sM=0,sV=0,sB=0,qM=0,qV=0;
+  for(let i=0;i<m;i++){
+    const h=hacker(draw,n);
+    sM+=h.mean; sV+=h.varU; sB+=h.varB; qM+=h.mean*h.mean; qV+=h.varU*h.varU;
+  }
+  const aM=sM/m, aV=sV/m;
+  return {aM,aV,aB:sB/m,sdM:Math.sqrt(Math.max(0,qM/m-aM*aM)),sdV:Math.sqrt(Math.max(0,qV/m-aV*aV))};
+}
+
+const f=(x,d=4)=>x.toFixed(d);
+const $=id=>document.getElementById(id);
+
+function render(){
+  const pmf=PMF[$('dist').value], T=theory(pmf);
+  const m=Math.max(2,Math.min(5000,+$('m').value||1000));
+  const n=Math.max(2,Math.min(10000,+$('n').value||20));
+  $('theory').textContent="μ  = Σ k·p(k)        = "+f(T.mu)+"\nσ² = Σ (k−μ)²·p(k)   = "+f(T.v)+"\nσ  = "+f(Math.sqrt(T.v));
+
+  const r=experiment(pmf,m,n);
+  $('res').innerHTML=
+    "<tr><th>Quantity (m = "+m+", n = "+n+")</th><th>Average over hackers</th><th>Theoretical</th><th>Difference</th><th>SD across hackers</th></tr>"+
+    "<tr><td>Sampling mean x̄</td><td>"+f(r.aM)+"</td><td class='ref'>μ = "+f(T.mu)+"</td><td>"+f(r.aM-T.mu)+"</td><td>"+f(r.sdM)+"</td></tr>"+
+    "<tr><td>Sampling variance s² (÷ n−1)</td><td>"+f(r.aV)+"</td><td class='ref'>σ² = "+f(T.v)+"</td><td>"+f(r.aV-T.v)+"</td><td>"+f(r.sdV)+"</td></tr>"+
+    "<tr><td>Biased variance (÷ n)</td><td>"+f(r.aB)+"</td><td class='ref'>σ²·(n−1)/n = "+f(T.v*(n-1)/n)+"</td><td>"+f(r.aB-T.v)+"</td><td>–</td></tr>";
+
+  let rows="<tr><th>n</th><th>avg x̄</th><th>SD(x̄)</th><th>Theory SD(x̄)</th><th>avg s²</th><th>SD(s²)</th><th>avg biased var</th></tr>";
+  [2,5,10,20,50,100,500,1000].forEach(k=>{
+    const e=experiment(pmf,m,k);
+    rows+="<tr><td>"+k+"</td><td>"+f(e.aM)+"</td><td>"+f(e.sdM)+"</td><td class='ref'>"+f(Math.sqrt(T.v/k))+"</td><td>"+f(e.aV)+"</td><td>"+f(e.sdV)+"</td><td>"+f(e.aB)+"</td></tr>";
+  });
+  $('sweep').innerHTML=rows;
+}
+$('run').addEventListener('click',render);
+['dist','m','n'].forEach(id=>$(id).addEventListener('change',render));
+render();
+</script>
+</body>
+</html>
