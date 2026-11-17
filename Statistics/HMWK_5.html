@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HMWK 5 — Riemann vs Lebesgue Integration & the Normal CDF</title>
+<style>
+:root{--bg:#f8fafc;--ink:#0f172a;--mute:#475569;--blue:#2563eb;--navy:#1e3a8a;--line:#e2e8f0;--chip:#eef1f6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.65 "Segoe UI",Inter,system-ui,sans-serif;padding:32px 22px 60px}
+main{max-width:1040px;margin:0 auto}
+h1{font-size:clamp(2rem,5vw,3.4rem);line-height:1.12;margin:0 0 18px;font-weight:800}
+.pipe{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:26px;font-weight:700;font-size:1.15rem}
+code,pre{font-family:Consolas,"SFMono-Regular",monospace}
+.pipe code{background:var(--chip);padding:9px 16px;border-radius:10px;font-size:.88rem;font-weight:400;line-height:1.5}
+.card{background:#fff;border:1px solid var(--line);border-radius:28px;padding:36px 40px;margin-bottom:34px}
+h2{font-size:2rem;margin:0 0 14px;font-weight:800}
+.lead,p{color:var(--mute);margin:.5em 0}
+.step{background:var(--bg);border-left:6px solid var(--blue);border-radius:6px 16px 16px 6px;padding:22px 30px;margin:22px 0}
+.step h3{color:var(--navy);margin:0 0 8px;font-size:1.22rem}
+.f{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 26px;margin:14px 0;font:1.12rem/1.8 "Cambria Math","STIX Two Math",Cambria,"Times New Roman",serif;overflow-x:auto;color:var(--ink)}
+.step p,.step li{color:var(--ink)}
+pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px 18px;font-size:.84rem;line-height:1.5;overflow-x:auto;margin:12px 0}
+.tw{overflow-x:auto;margin:14px 0}
+table{border-collapse:collapse;width:100%;background:#fff;font-size:.88rem;border:1px solid var(--line);border-radius:10px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{background:#f1f5f9;color:var(--navy)}
+td:first-child,th:first-child{text-align:left}
+.n{font-size:.9rem;color:var(--mute)}
+.ok{color:#047857;font-weight:600}.bad{color:#b91c1c;font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>HMWK 5 — Riemann vs Lebesgue Integration & the Normal CDF</h1>
+<div class="pipe">Pipeline: <code>f on [a,b] → slice x (Riemann) / slice y + preimage measure (Lebesgue) → error vs exact → Φ(x): quadrature, series, erf → compare with reference</code></div>
+
+<!-- ============ EX 1 ============ -->
+<section class="card">
+<h2>Ex. 1 – Riemann and Lebesgue Integration</h2>
+<p class="lead">Approximate ∫f for a collection of functions by cutting the <em>domain</em> (Riemann) and by cutting the <em>range</em> and measuring preimages (Lebesgue); compare accuracy, convergence and cost, and look at functions where the two views part ways.</p>
+
+<div class="step"><h3>Step 1: The two numerical schemes</h3>
+<p>Riemann: split [a,b] into n cells of width h = (b−a)/n and sample f at the cell midpoint.</p>
+<div class="f">R<sub>n</sub> = h · Σ<sub>i=0..n−1</sub> f(a + (i+½)h)</div>
+<p>Lebesgue: split the <em>range</em> [m,M] into n levels y<sub>j</sub> = m + j·k, k = (M−m)/n, and weight each level by the measure of the preimage E<sub>j</sub> = {x : y<sub>j</sub> ≤ f(x) &lt; y<sub>j+1</sub>}. With G(t) = μ{x : f(x) ≥ t} (the “layer-cake” function) this is a lower simple-function sum:</p>
+<div class="f">L<sub>n</sub> = Σ<sub>j=0..n−1</sub> y<sub>j</sub> · μ(E<sub>j</sub>) = Σ<sub>j</sub> y<sub>j</sub> · ( G(y<sub>j</sub>) − G(y<sub>j+1</sub>) ),&nbsp;&nbsp; G(y<sub>n</sub>) := 0</div>
+<p>It is the discretisation of ∫f dμ = ∫<sub>0</sub><sup>∞</sup> G(t) dt (for f ≥ 0). Because f ≥ 0 is replaced by a simple function s ≤ f with f − s &lt; k, we get <b>0 ≤ I − L<sub>n</sub> ≤ k·(b−a)</b>: the Lebesgue sum is always a lower bound and converges at most <b>linearly</b> in the level height. The exact preimage measures G are available in closed form for the examples (e.g. μ{sin x ≥ t} = π − 2 arcsin t); for a general f they must be found by root-finding or by counting sample points.</p></div>
+
+<div class="step"><h3>Step 2: Code (core logic)</h3>
+<pre>def riemann(f, a, b, n):                      # slice the domain
+    h = (b - a) / n
+    return h * sum(f(a + (i + .5) * h) for i in range(n))
+
+def lebesgue(G, m, M, n):                     # slice the range, G(t) = mu{f >= t}
+    k = (M - m) / n;  y = [m + j * k for j in range(n + 1)]
+    g = [G(t) for t in y];  g[n] = 0          # nothing lies above the top level
+    return sum(y[j] * (g[j] - g[j + 1]) for j in range(n))</pre>
+<p class="n">Functions: sin x on [0,π]; x² on [0,1]; step 1/3 (1 for x&lt;½, 3 after); |x−½|; 1/√x on (0,1] (truncated at T = √n for the Lebesgue sum, see Step 4); step 1/0; sin x / x on [0,π] (exact value Si(π) = 1.851937…, preimages by bisection since f is decreasing).</p></div>
+
+<div class="step"><h3>Step 3: Results — absolute error |approx − I| with n cells (Riemann) or n levels (Lebesgue)</h3>
+<div class="tw"><table>
+<tr><th rowspan="2">f</th><th rowspan="2">exact I</th><th colspan="4">Riemann midpoint R<sub>n</sub></th><th colspan="4">Lebesgue lower sum L<sub>n</sub></th></tr>
+<tr><th>10</th><th>10²</th><th>10³</th><th>10⁴</th><th>10</th><th>10²</th><th>10³</th><th>10⁴</th></tr>
+<tr><td>sin x</td><td>2</td><td>8.2e-3</td><td>8.2e-5</td><td>8.2e-7</td><td>8.2e-9</td><td>1.7e-1</td><td>1.6e-2</td><td>1.6e-3</td><td>1.6e-4</td></tr>
+<tr><td>x²</td><td>1/3</td><td>8.3e-4</td><td>8.3e-6</td><td>8.3e-8</td><td>8.3e-10</td><td>4.4e-2</td><td>4.8e-3</td><td>4.9e-4</td><td>5.0e-5</td></tr>
+<tr><td>sin x / x</td><td>1.85194</td><td>1.3e-3</td><td>1.3e-5</td><td>1.3e-7</td><td>1.3e-9</td><td>1.7e-1</td><td>1.6e-2</td><td>1.6e-3</td><td>1.6e-4</td></tr>
+<tr><td>|x−½|</td><td>1/4</td><td>0</td><td>0</td><td>0</td><td>0</td><td>2.5e-2</td><td>2.5e-3</td><td>2.5e-4</td><td>2.5e-5</td></tr>
+<tr><td>step 1/3</td><td>2</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1.0e-1</td><td>1.0e-2</td><td>1.0e-3</td><td>1.0e-4</td></tr>
+<tr><td>step 1/0</td><td>1/2</td><td>0</td><td>0</td><td>0</td><td>0</td><td>5.0e-2</td><td>5.0e-3</td><td>5.0e-4</td><td>5.0e-5</td></tr>
+<tr><td>1/√x</td><td>2</td><td>1.9e-1</td><td>6.0e-2</td><td>1.9e-2</td><td>6.0e-3</td><td>4.9e-1</td><td>1.5e-1</td><td>4.8e-2</td><td>1.5e-2</td></tr>
+</table></div>
+<p class="n">Observed orders: smooth f → Riemann midpoint ∝ n⁻² (error ÷100 per decade of n), Lebesgue ∝ n⁻¹ (÷10). 1/√x → both ∝ n<sup>−1/2</sup>. The zeros for the kinked/step functions are an artefact: with n even, x = ½ is a cell boundary, so no cell straddles the discontinuity. With odd n the error returns: n = 11, 101, 1001 give errors 9.1e-2, 9.9e-3, 9.99e-4 for the step 1/3 (∝ 1/n, first order).</p></div>
+
+<div class="step"><h3>Step 4: Accuracy, convergence, efficiency</h3>
+<ul>
+<li><b>Smooth functions.</b> The midpoint rule is second order (error ≈ (b−a)h²f″/24); the Lebesgue sum is first order, error ≈ k·(b−a)/2 — at n = 10⁴, 10⁻⁹ versus 10⁻⁴. Both converge to the same value, as they must: for Riemann-integrable f the Riemann and Lebesgue integrals coincide.</li>
+<li><b>Discontinuous f.</b> The Lebesgue view is unaffected by <em>where</em> the jump sits (only the measures of the level sets matter); Riemann loses its order to O(1/n) as soon as a cell straddles the jump.</li>
+<li><b>Unbounded f = 1/√x.</b> Riemann: f(0) is infinite, so only an improper limit exists (midpoint avoids x = 0 and error ∝ √h). Lebesgue: ∫f = lim ∫min(f,T) by monotone convergence, and G(t) = min(1, 1/t²) gives ∫<sub>0</sub><sup>∞</sup>G = 1 + 1 = 2. The truncation costs 1/T, hence T = √n and k = n<sup>−1/2</sup>.</li>
+<li><b>Cost.</b> Riemann needs n evaluations of f and is trivially vectorised. Lebesgue needs the preimage measure: closed form or bisection per level (≈50 evaluations of f each for sin x / x), or counting N sample values in bins (O(N) or O(N log N)), which is then just a Riemann sum whose values are rounded down to the level grid — never better than Riemann for continuous f, but valid for any measurable f and any measure.</li>
+</ul></div>
+
+<div class="step"><h3>Step 5: Pathological functions</h3>
+<p><b>Dirichlet</b> 1<sub>ℚ∩[0,1]</sub>. Every cell contains both rationals and irrationals, so every lower Darboux sum is 0 and every upper sum is 1: <span class="bad">not Riemann integrable</span>. A Riemann sum depends on the tags: rational tags ξ<sub>i</sub> = i/n give R<sub>n</sub> = 1 for all n, tags ξ<sub>i</sub> = (i+√2−1)/n·(…irrational) give 0. (A floating-point program cannot even decide rationality — every double is a rational number — so this experiment can only be done symbolically.) Lebesgue: ℚ is countable, μ(ℚ∩[0,1]) = 0 (cover the k-th rational by an interval of length ε/2<sup>k</sup>), so G(t) = 0 for t&gt;0 and <span class="ok">∫ = 0</span> exactly.</p>
+<p><b>Thomae</b> f(p/q) = 1/q. For any ε &gt; 0, {f ≥ ε} is finite, so μ{f ≥ ε} = 0 and the Lebesgue integral is 0. It is also Riemann integrable (upper sums ≤ ε + (finite number of points)·h) with the same value 0 — the two definitions agree. With rational tags i/n, f(i/n) = gcd(i,n)/n and R<sub>n</sub> = (1/n²) Σ<sub>i</sub> gcd(i,n):</p>
+<div class="tw"><table>
+<tr><th>n</th><th>10</th><th>100</th><th>1000</th><th>7919 (prime)</th><th>10080</th><th>10⁵</th></tr>
+<tr><td>R<sub>n</sub> (→ 0)</td><td>0.27</td><td>0.052</td><td>0.0085</td><td>2.5e-4</td><td>2.7e-3</td><td>1.75e-4</td></tr></table></div>
+<p class="n">For prime n, R<sub>n</sub> = (2n−1)/n² ≈ 2/n; highly composite n (many large gcd's) converge more slowly, so the sequence is not monotone, but → 0.</p>
+<div class="f">1<sub>ℚ</sub>: Riemann ✗, Lebesgue = 0 &nbsp;&nbsp;|&nbsp;&nbsp; Thomae: Riemann = Lebesgue = 0 &nbsp;&nbsp;|&nbsp;&nbsp; 1/√x: Riemann improper, Lebesgue = 2</div></div>
+</section>
+
+<!-- ============ EX 2 ============ -->
+<section class="card">
+<h2>Ex. 2 – Numerical Computation of the Normal CDF</h2>
+<p class="lead">Compute Φ(x) = ∫<sub>−∞</sub><sup>x</sup> φ(t)dt with φ(t) = e<sup>−t²/2</sup>/√(2π), explain why no elementary formula exists, and test three families of methods against a reference.</p>
+
+<div class="step"><h3>Step 1: Φ and the error function</h3>
+<p>By symmetry Φ(x) = ½ + ∫<sub>0</sub><sup>x</sup> φ. The substitution t = u√2 turns it into the error function erf(z) = (2/√π)∫<sub>0</sub><sup>z</sup> e<sup>−u²</sup>du:</p>
+<div class="f">Φ(x) = ½ [ 1 + erf( x/√2 ) ] = ½ erfc( −x/√2 )</div>
+<p>This is an exact analytic representation — but erf is only a <em>name</em> for the integral. Evaluating it still requires a numerical algorithm, which is why every library (libm, SciPy, R, …) ships a carefully tuned erf/erfc implementation.</p></div>
+
+<div class="step"><h3>Step 2: Why Φ is not elementary (Liouville)</h3>
+<p><b>Liouville’s theorem (1835).</b> For rational f, g with g non-constant, ∫ f·e<sup>g</sup> dx is an elementary function iff there is a <em>rational</em> R with R′ + g′R = f; the antiderivative is then R·e<sup>g</sup>.</p>
+<p>Here f = 1, g = −x²/2, so g′ = −x and we need a rational R with</p>
+<div class="f">R′ − x·R = 1</div>
+<p>Pole of order m ≥ 1 at some a: R′ has order m+1, xR at most m, so the left side has a pole but the right side (=1) does not — impossible. So R is a polynomial of degree d: R′ has degree ≤ d−1, xR has degree d+1, hence the left side has degree d+1 ≥ 1 (R = 0 gives 0 ≠ 1). Contradiction: <b>no elementary antiderivative of e<sup>−x²/2</sup> exists</b>, so neither Φ nor erf can be written with finitely many exp, log, roots, trigonometric functions and algebraic operations.</p>
+<p>The same equation shows where the series comes from: S′ = 1 + xS is solved by the entire power series S(x) = Σ x<sup>2k+1</sup>/(2k+1)!! (not rational), and e<sup>−x²/2</sup>S(x) is the antiderivative — see method B.</p></div>
+
+<div class="step"><h3>Step 3: Three numerical approaches</h3>
+<p><b>A. Quadrature</b> on [0,|x|] with n panels (h = |x|/n), then Φ(−x) = 1 − Φ(x):</p>
+<div class="f">Trapezoid: h[½φ(0) + Σ<sub>i=1..n−1</sub>φ(ih) + ½φ(x)] &nbsp;(error O(h²))<br>Simpson: (h/3)[φ(0) + 4Σ<sub>odd</sub>φ(ih) + 2Σ<sub>even</sub>φ(ih) + φ(x)] &nbsp;(error O(h⁴))</div>
+<p><b>B. Power series.</b> Integrating the Maclaurin series of e<sup>−t²/2</sup> gives an alternating series; the equivalent form from Step 2 has only positive terms and no cancellation:</p>
+<div class="f">Φ(x) = ½ + φ(x) · Σ<sub>k≥0</sub> x<sup>2k+1</sup> / (1·3·5···(2k+1)), &nbsp;term<sub>k</sub> = term<sub>k−1</sub> · x²/(2k+1)</div>
+<p><b>C. erf-based.</b> Φ(x) = ½[1 + erf(x/√2)] with (i) the alternating erf series, (ii) the Abramowitz–Stegun 7.1.26 rational approximation erf(z) ≈ 1 − (a₁t + … + a₅t⁵)e<sup>−z²</sup>, t = 1/(1+0.3275911z), |error| ≤ 1.5·10⁻⁷, and (iii) a hybrid: series for |x| &lt; 3, and for the tails the continued fraction</p>
+<div class="f">1 − Φ(x) = φ(x) / ( x + 1/( x + 2/( x + 3/( x + … ))) ), &nbsp;x &gt; 0 &nbsp;(80 levels)</div>
+<pre>def Phi(x):                                   # hybrid, ~1e-16 relative accuracy
+    if abs(x) &lt; 3:
+        t = s = x; k = 0
+        while abs(t) &gt; 1e-17 * abs(s):
+            k += 1; t *= x*x / (2*k + 1); s += t
+        return 0.5 + exp(-x*x/2) / sqrt(2*pi) * s
+    d = 0.0
+    for k in range(80, 0, -1): d = k / (x_abs + d)      # continued fraction
+    q = exp(-x*x/2) / sqrt(2*pi) / (abs(x) + d)          # upper tail Q(|x|)
+    return 1 - q if x &gt; 0 else q</pre></div>
+
+<div class="step"><h3>Step 4: Accuracy — relative error against the reference</h3>
+<p class="n">Reference: C-library erfc (Python <code>math.erfc</code>, accurate to ≈1 ulp), consistent with standard published tables — e.g. Φ(1.96) = 0.9750021, Φ(1) = 0.8413447 — which you can cross-check against the linked Hogg–McKean–Craig notes or any table. n = 64 panels for A.</p>
+<div class="tw"><table>
+<tr><th>x</th><th>Φ(x) (reference)</th><th>Trapezoid</th><th>Simpson</th><th>Series B</th><th>erf alt. series</th><th>A&amp;S 7.1.26</th><th>Hybrid</th></tr>
+<tr><td>−6</td><td>9.865876450377e-10</td><td>2.7e-2</td><td>5.1e-4</td><td>1.7e-7</td><td>4.1e-2</td><td>3.6e-3</td><td>2.9e-15</td></tr>
+<tr><td>−3</td><td>1.349898031630e-3</td><td>1.8e-3</td><td>1.6e-6</td><td>8.8e-14</td><td>3.5e-14</td><td>5.1e-5</td><td>8.0e-16</td></tr>
+<tr><td>−1</td><td>0.158655253931457</td><td>3.1e-5</td><td>1.0e-9</td><td>3.5e-16</td><td>3.5e-16</td><td>6.2e-8</td><td>3.5e-16</td></tr>
+<tr><td>0.5</td><td>0.691462461274013</td><td>1.3e-6</td><td>1.4e-11</td><td>1.6e-16</td><td>0</td><td>2.1e-9</td><td>1.6e-16</td></tr>
+<tr><td>1</td><td>0.841344746068543</td><td>5.9e-6</td><td>1.9e-10</td><td>1.3e-16</td><td>1.3e-16</td><td>1.2e-8</td><td>1.3e-16</td></tr>
+<tr><td>1.96</td><td>0.975002104851780</td><td>9.2e-6</td><td>4.8e-10</td><td>1.1e-16</td><td>1.1e-16</td><td>7.1e-8</td><td>1.1e-16</td></tr>
+<tr><td>3</td><td>0.998650101968370</td><td>2.4e-6</td><td>2.1e-9</td><td>1.1e-16</td><td>1.1e-16</td><td>6.9e-8</td><td>0</td></tr>
+<tr><td>5</td><td>0.999999713348428</td><td>3.8e-9</td><td>3.3e-11</td><td>2.2e-16</td><td>9.7e-14</td><td>4.5e-10</td><td>0</td></tr>
+</table></div>
+<ul>
+<li>Fixed-n quadrature is good in the bulk but its <em>absolute</em> error does not shrink in the tails, so the relative error explodes for x = −6 (the value is 10⁻⁹).</li>
+<li>The series is near machine precision for |x| ≲ 3, but for x = −6 it computes ½ − φ·S, a difference of nearly equal numbers (catastrophic cancellation, 1.7e-7). The alternating erf series is worse: its terms grow to ≈ e<sup>z²</sup> before decaying (z = x/√2), costing about 4–5 digits at x = 5 and everything at x = −6.</li>
+<li>Remedy: never form 1 − Φ for the lower tail; use the tail directly (erfc, continued fraction). The hybrid keeps ≈10⁻¹⁵ relative error everywhere tested.</li>
+<li>A&amp;S 7.1.26 delivers its advertised 10⁻⁷ <em>absolute</em> error but not relative accuracy in the tails.</li>
+</ul></div>
+
+<div class="step"><h3>Step 5: Convergence and cost</h3>
+<p>Error at x = 2 versus number of panels (reference Φ(2) = 0.977249868051821):</p>
+<div class="tw"><table>
+<tr><th>n</th><th>4</th><th>8</th><th>16</th><th>32</th><th>64</th><th>128</th></tr>
+<tr><td>Trapezoid</td><td>2.2e-3</td><td>5.6e-4</td><td>1.4e-4</td><td>3.5e-5</td><td>8.8e-6</td><td>2.2e-6</td></tr>
+<tr><td>Simpson</td><td>4.9e-5</td><td>2.5e-6</td><td>1.5e-7</td><td>9.2e-9</td><td>5.7e-10</td><td>3.6e-11</td></tr></table></div>
+<p>Doubling n divides the trapezoid error by 4 (order 2) and Simpson’s by 16 (order 4), as theory predicts. Series terms needed for a relative 10⁻¹⁷: 11 (x = 0.5), 15 (1), 24 (2), 33 (3), 53 (5), 77 (7) — roughly 10·x terms, i.e. cost grows with |x|, whereas the continued fraction converges <em>faster</em> the larger |x| is, hence the switch at |x| = 3.</p>
+<div class="tw"><table>
+<tr><th>Method</th><th>Work per evaluation</th><th>Error (4000 random x in [−4,4])</th><th>Time, pure Python</th></tr>
+<tr><td>Trapezoid, n = 64</td><td>65 exp</td><td>≈9e-6 (x = 2)</td><td>7.0 µs</td></tr>
+<tr><td>Simpson, n = 64</td><td>65 exp</td><td>2.2e-9 max</td><td>10.0 µs</td></tr>
+<tr><td>Series B (|x| ≤ 3)</td><td>≤ 33 multiply-adds + 1 exp</td><td>≈1e-16</td><td>2.3 µs</td></tr>
+<tr><td>A&amp;S 7.1.26</td><td>5 multiply-adds + 1 exp</td><td>7.0e-8 max</td><td>0.2 µs</td></tr>
+<tr><td>Hybrid</td><td>≤ 33 terms or 80 CF levels + 1 exp</td><td>4.9e-16 max</td><td>1.8 µs</td></tr>
+<tr><td>math.erfc (libm, reference)</td><td>fixed rational approximations</td><td>≈1 ulp</td><td>0.1 µs</td></tr></table></div>
+<p class="n">Timings are indicative (interpreted Python, one sandbox run). Rankings are what matters: closed-form approximations are fastest, series/continued fraction give full double precision at modest cost, and brute-force quadrature is the slowest and least accurate.</p></div>
+
+<div class="step"><h3>Step 6: Summary</h3>
+<ul>
+<li>Φ has no elementary closed form (Liouville: R′ − xR = 1 has no rational solution); the special function erf gives the exact representation Φ(x) = ½[1 + erf(x/√2)], but erf itself must be computed numerically.</li>
+<li>Best practical choice: erfc-based evaluation — series near 0, continued fraction (or Cody’s rational approximations, as in libm) in the tails — which keeps <em>relative</em> accuracy ≈10⁻¹⁶, including Φ(−6) ≈ 10⁻⁹.</li>
+<li>Quadrature is the most general method (it works for any density) but is the least efficient here; Simpson is the better of the two quadratures by orders of magnitude at equal cost.</li>
+</ul></div>
+</section>
+</main>
+</body>
+</html>
