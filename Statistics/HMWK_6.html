@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HMWK 6 — Independence & the Chi-Square Test</title>
+<style>
+:root{--ink:#1e293b;--mut:#64748b;--line:#e2e8f0;--bg:#f8f9fc;--blue:#2563eb;--green:#16a06b;--orange:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;padding:36px 48px 60px;background:var(--bg);color:var(--ink);font:17px/1.55 "Segoe UI",system-ui,-apple-system,Arial,sans-serif}
+h1{font-size:44px;line-height:1.15;margin:0 0 26px;font-weight:800}
+h2{font-size:30px;margin:8px 0 26px;font-weight:800}
+h3{font-size:22px;margin:26px 0 14px;font-weight:800}
+code{background:#eef1f7;padding:3px 8px;border-radius:6px;font:15px Consolas,Menlo,monospace}
+.intro{margin:0 0 26px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:34px 40px;margin-bottom:30px;box-shadow:0 1px 4px rgba(15,23,42,.06)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px}
+label{display:block;font-size:18px;margin:14px 0 8px}
+select,input[type=number]{font:inherit;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+textarea{width:100%;font:14px/1.4 Consolas,Menlo,monospace;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;height:120px;resize:vertical}
+.hint{font-size:14px;color:var(--mut);margin:4px 0 0}
+.result{margin:22px 0 8px;padding:20px 24px;border:3px solid var(--green);background:#effbf4;border-radius:12px;color:#14532d;font-weight:800;font-size:20px;line-height:1.5}
+.result.rej{border-color:#ea580c;background:#fff6ed;color:#9a3412}
+.result small{display:block;font-weight:600;font-size:15px;margin-top:4px}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:14px 22px;font:700 19px inherit;cursor:pointer}
+.btn:hover{background:#1d4ed8}.btn:focus-visible{outline:3px solid #93c5fd}
+.btn.sm{padding:10px 18px;font-size:18px}
+.bar{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:22px 0 18px}
+.bar span{color:var(--mut)}
+.wrap{overflow:auto;max-height:350px;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:16px}
+th,td{padding:10px 14px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:#f1f4fa;font-weight:700}
+.wrap th{position:sticky;top:0}
+tr.hl td{background:#d1f7e1;font-weight:800}
+.tables{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 40px}
+.tables h3{font-size:19px;margin:12px 0 8px}
+.tables .wrap{max-height:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.tot td{background:#f8fafc;font-weight:700}
+td.low{color:#b91c1c;font-weight:700}
+svg{width:100%;height:auto;border:1px solid #cbd5e1;border-radius:6px;background:#fff;display:block}
+.cap{color:var(--mut);margin-top:12px}
+.box{border-left:5px solid var(--blue);background:#f1f5ff;padding:14px 20px;border-radius:0 10px 10px 0;margin:14px 0}
+.box.w{border-color:var(--orange);background:#fff9eb}
+ul{padding-left:22px}li{margin:6px 0}
+@media(max-width:900px){body{padding:20px}.grid,.tables{grid-template-columns:1fr}h1{font-size:32px}.card{padding:22px}}
+</style>
+</head>
+<body>
+
+<h1>HMWK 6 — Independence & the Chi-Square Test</h1>
+<p class="intro"><b>Hypotheses:</b> <code>H₀: X and F are independent</code> vs <code>H₁: X and F are associated</code>
+ &nbsp;(expected counts <code>E = row total × column total / n</code>, statistic <code>χ² = Σ (O − E)² / E</code>)</p>
+
+<!-- ============ 1 ============ -->
+<section class="card">
+<h2>1. Bivariate Data (X, F) → Contingency Table → χ² Test</h2>
+<div class="grid">
+  <div>
+    <label for="ds">Dataset (X, F):</label>
+    <select id="ds"></select>
+    <label for="alpha">Significance level α:</label>
+    <select id="alpha"><option>0.10</option><option selected>0.05</option><option>0.01</option></select>
+    <label for="raw">Raw observations (line 1 = variable names, then one “X,F” pair per line):</label>
+    <textarea id="raw" spellcheck="false"></textarea>
+    <p class="hint">Paste your own data to try it: the tables below are rebuilt programmatically from these rows.</p>
+    <div class="result" id="result"></div>
+    <h3>Step-by-step: cell contributions to χ²</h3>
+    <div class="wrap"><table id="steps"></table></div>
+  </div>
+  <div>
+    <h3 style="margin-top:8px">Guru-Level: Slowed-Down Visual Path</h3>
+    <div class="bar">
+      <button class="btn" id="play">▶ Play Slow-Mo</button>
+      <button class="btn sm" id="next">Step +1</button>
+      <span id="count"></span>
+    </div>
+    <div id="chart"></div>
+    <p class="cap">Blue = observed O | Gray = expected E under independence | Orange = cell being added to χ²</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="card">
+<h2>2. Marginal, Joint & Conditional Frequencies</h2>
+<div class="tables" id="tables"></div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="card">
+<h2>3. Interpretation</h2>
+<div class="box"><b>Independence:</b> X and F are independent when knowing X tells us nothing about F:
+ <code>P(X=x, F=f) = P(X=x)·P(F=f)</code> for every cell, equivalently <code>P(F=f | X=x) = P(F=f)</code>.
+ In the table, every conditional row would then look like the marginal row. The χ² test measures how far the observed counts are from the counts this
+ rule would predict, with <code>df = (r − 1)(c − 1)</code>. Reject H₀ when χ² exceeds the critical value, or equivalently when p &lt; α.</div>
+<h3 style="margin-top:20px">Conclusion for this dataset</h3>
+<div id="concl"></div>
+<h3>Association is not causation</h3>
+<div class="box w">
+<ul>
+<li>A significant χ² only says the variables are <b>statistically associated</b>: the pattern is unlikely under independence. It does not say which variable drives the other, or whether either does.</li>
+<li><b>Confounding:</b> a third variable can create the link. Ice-cream sales and drownings both rise with hot weather, so neither causes the other.</li>
+<li><b>Reverse causation</b> and <b>selection effects</b> can also produce association; establishing cause needs a randomized experiment or a careful causal design.</li>
+<li><b>Size vs. significance:</b> with large n, tiny effects become “significant”, so report an effect size (Cramér’s V) as well. Not rejecting H₀ is also not proof of independence, only a lack of evidence against it.</li>
+</ul>
+</div>
+</section>
+
+<script>
+/* ---------- datasets: counts -> raw (X,F) rows ---------- */
+const DS={
+ study:{label:"Study method vs Exam result",h:["Study method","Result"],c:{"Flashcards":{Pass:38,Fail:22},"Rereading":{Pass:25,Fail:35},"Practice tests":{Pass:52,Fail:18}}},
+ plan:{label:"Device vs Subscription plan (near independent)",h:["Device","Plan"],c:{"Phone":{Free:42,Paid:28},"Laptop":{Free:39,Paid:31},"Tablet":{Free:21,Paid:14}}},
+ ice:{label:"Ice-cream sales vs Drownings (confounded)",h:["Ice-cream sales","Drownings"],c:{"Low":{Few:45,Many:15},"High":{Few:20,Many:50}}}
+};
+function toText(d){let t=d.h.join(",");for(const x in d.c)for(const f in d.c[x])for(let i=0;i<d.c[x][f];i++)t+="\n"+x+","+f;return t}
+
+/* ---------- gamma / chi-square tail ---------- */
+function gln(z){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,.1208650973866179e-2,-.5395239384953e-5];let y=z,t=z+5.5;t-=(z+.5)*Math.log(t);let s=1.000000000190015;for(let j=0;j<6;j++)s+=c[j]/++y;return -t+Math.log(2.5066282746310005*s/z)}
+function gser(a,x){let ap=a,s=1/a,d=s;for(let n=0;n<500;n++){ap++;d*=x/ap;s+=d;if(Math.abs(d)<Math.abs(s)*1e-13)break}return s*Math.exp(-x+a*Math.log(x)-gln(a))}
+function gcf(a,x){let b=x+1-a,c=1e300,d=1/b,h=d;for(let i=1;i<500;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-300)d=1e-300;c=b+an/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const l=d*c;h*=l;if(Math.abs(l-1)<1e-13)break}return Math.exp(-x+a*Math.log(x)-gln(a))*h}
+function pval(chi,df){if(chi<=0)return 1;const a=df/2,x=chi/2;return x<a+1?1-gser(a,x):gcf(a,x)}
+function crit(alpha,df){let lo=0,hi=2000;for(let i=0;i<100;i++){const m=(lo+hi)/2;pval(m,df)>alpha?lo=m:hi=m}return (lo+hi)/2}
+
+/* ---------- analysis ---------- */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+let A=null,step=0,timer=null;
+
+function analyse(text){
+  const L=text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(L.length<3)return{err:"Add a header line and at least two data rows."};
+  const hd=L[0].split(",").map(s=>s.trim());
+  const xn=hd[0]||"X",fn=hd[1]||"F",rows=[];
+  for(const l of L.slice(1)){const p=l.split(",").map(s=>s.trim());if(p.length>=2&&p[0]&&p[1])rows.push([p[0],p[1]])}
+  const xs=[...new Set(rows.map(r=>r[0]))],fs=[...new Set(rows.map(r=>r[1]))];
+  if(xs.length<2||fs.length<2)return{err:"Both variables need at least 2 distinct categories."};
+  const O=xs.map(()=>fs.map(()=>0));
+  rows.forEach(r=>O[xs.indexOf(r[0])][fs.indexOf(r[1])]++);
+  const n=rows.length,R=O.map(r=>r.reduce((a,b)=>a+b,0)),C=fs.map((_,j)=>O.reduce((a,r)=>a+r[j],0));
+  const E=O.map((r,i)=>r.map((_,j)=>R[i]*C[j]/n));
+  const K=O.map((r,i)=>r.map((o,j)=>(o-E[i][j])**2/E[i][j]));
+  const chi=K.flat().reduce((a,b)=>a+b,0),df=(xs.length-1)*(fs.length-1);
+  const V=Math.sqrt(chi/(n*Math.min(xs.length-1,fs.length-1)));
+  const cells=[];xs.forEach((x,i)=>fs.forEach((f,j)=>cells.push({x,f,i,j,o:O[i][j],e:E[i][j],k:K[i][j]})));
+  let run=0;cells.forEach(c=>{run+=c.k;c.run=run});
+  return{xn,fn,xs,fs,O,E,K,R,C,n,chi,df,p:pval(chi,df),V,cells,minE:Math.min(...E.flat())};
+}
+const f2=v=>v.toFixed(2),f3=v=>v.toFixed(3);
+const fp=p=>p<1e-4?"< 0.0001":p.toFixed(4);
+
+/* ---------- tables ---------- */
+function grid(t,A,cell,rt,ct,gt,rl,cl,low){
+  let h=`<div><h3>${t}</h3><div class="wrap"><table><tr><th>${esc(A.xn)} \\ ${esc(A.fn)}</th>${A.fs.map(f=>`<th class="num">${esc(f)}</th>`).join("")}<th class="num">${rl}</th></tr>`;
+  A.xs.forEach((x,i)=>{h+=`<tr><td>${esc(x)}</td>${A.fs.map((_,j)=>`<td class="num ${low&&A.E[i][j]<5?"low":""}">${cell(i,j)}</td>`).join("")}<td class="num"><b>${rt(i)}</b></td></tr>`});
+  return h+`<tr class="tot"><td>${cl}</td>${A.fs.map((_,j)=>`<td class="num">${ct(j)}</td>`).join("")}<td class="num">${gt}</td></tr></table></div></div>`;
+}
+function renderTables(){
+  const a=A;
+  $("tables").innerHTML=
+   grid("Observed counts O (with marginal totals)",a,(i,j)=>a.O[i][j],i=>a.R[i],j=>a.C[j],a.n,"Total","Total")+
+   grid("Joint relative frequencies P(X, F)",a,(i,j)=>f3(a.O[i][j]/a.n),i=>f3(a.R[i]/a.n),j=>f3(a.C[j]/a.n),"1.000","P(X)","P(F)")+
+   grid("Conditional frequencies P(F | X)",a,(i,j)=>f3(a.O[i][j]/a.R[i]),i=>"1.000",j=>f3(a.C[j]/a.n),"","Total","Marginal P(F)")+
+   grid("Conditional frequencies P(X | F)",a,(i,j)=>f3(a.O[i][j]/a.C[j]),i=>f3(a.R[i]/a.n),j=>"1.000","","Marginal P(X)","Total")+
+   grid("Expected counts E = row × col / n (red: E &lt; 5)",a,(i,j)=>f2(a.E[i][j]),i=>f2(a.R[i]),j=>f2(a.C[j]),a.n,"Total","Total",true)+
+   grid("Contributions (O − E)² / E",a,(i,j)=>f3(a.K[i][j]),i=>f3(a.K[i].reduce((s,v)=>s+v,0)),j=>f3(a.K.reduce((s,r)=>s+r[j],0)),f3(a.chi),"Sum","Sum");
+}
+
+/* ---------- step table + chart ---------- */
+function renderStep(){
+  const a=A,T=a.cells.length;
+  $("count").textContent=`Showing ${step} / ${T} steps`;
+  let h=`<tr><th>Step</th><th>Cell (x, f)</th><th class="num">O</th><th class="num">E</th><th class="num">(O−E)²/E</th><th class="num">Running χ²</th></tr>`;
+  a.cells.slice(0,step).forEach((c,i)=>{h+=`<tr class="${i==step-1&&step==T?"hl":""}"><td>${i+1}</td><td>(${esc(c.x)}, ${esc(c.f)})</td><td class="num">${c.o}</td><td class="num">${f2(c.e)}</td><td class="num">${f3(c.k)}</td><td class="num">${f3(c.run)}</td></tr>`});
+  $("steps").innerHTML=h;
+  const w=$("steps").parentNode;w.scrollTop=w.scrollHeight;
+  /* chart */
+  const W=640,H=400,m={l:48,r:14,t:34,b:a.cells.length>6?112:70},pw=W-m.l-m.r,ph=H-m.t-m.b;
+  const mx=Math.max(...a.cells.map(c=>Math.max(c.o,c.e)))*1.12,gw=pw/T,bw=Math.min(26,gw*.34);
+  const Y=v=>m.t+ph-v/mx*ph;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Observed versus expected counts per cell">`;
+  for(let i=0;i<=5;i++){const v=mx*i/5,y=Y(v);s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="#e5e9f0"/><text x="${m.l-8}" y="${y+4}" font-size="11" fill="#64748b" text-anchor="end">${Math.round(v)}</text>`}
+  a.cells.forEach((c,k)=>{
+    const cx=m.l+gw*(k+.5),on=k<step,cur=k==step-1,op=on?1:.13;
+    s+=`<g opacity="${op}"><rect x="${cx-bw-1}" y="${Y(c.o)}" width="${bw}" height="${m.t+ph-Y(c.o)}" fill="#2563eb" rx="2"/><rect x="${cx+1}" y="${Y(c.e)}" width="${bw}" height="${m.t+ph-Y(c.e)}" fill="#a7b0be" rx="2"/></g>`;
+    if(cur)s+=`<rect x="${cx-bw-5}" y="${m.t-4}" width="${2*bw+10}" height="${ph+8}" fill="none" stroke="#f59e0b" stroke-width="2.5" rx="5"/><text x="${cx}" y="${m.t-12}" font-size="12" font-weight="700" fill="#b45309" text-anchor="middle">+${f2(c.k)}</text>`;
+    const lab=esc(c.x+" · "+c.f),ly=m.t+ph+16;
+    s+=a.cells.length>6?`<text transform="translate(${cx+4},${ly}) rotate(-40)" font-size="11" text-anchor="end" fill="${cur?"#b45309":"#475569"}" font-weight="${cur?700:400}" opacity="${on?1:.4}">${lab}</text>`:`<text x="${cx}" y="${ly}" font-size="12" text-anchor="middle" fill="${cur?"#b45309":"#475569"}" font-weight="${cur?700:400}" opacity="${on?1:.4}">${lab}</text>`;
+  });
+  s+=`<text x="${m.l}" y="16" font-size="13" font-weight="700" fill="#1e293b">Running χ² = ${step?f3(a.cells[step-1].run):"0.000"}  (total ${f3(a.chi)})</text></svg>`;
+  $("chart").innerHTML=s;
+}
+
+/* ---------- result + conclusion ---------- */
+function renderResult(){
+  const a=A,al=+$("alpha").value,cv=crit(al,a.df),rej=a.p<al;
+  const r=$("result");r.className="result"+(rej?" rej":"");
+  r.innerHTML=`χ² = ${f3(a.chi)}, df = ${a.df}, p = ${fp(a.p)}<small>Critical value (α = ${al}) = ${f3(cv)} → ${rej?"REJECT H₀: X and F look dependent":"FAIL TO REJECT H₀: no evidence of dependence"}</small>`;
+  const big=[...a.cells].sort((p,q)=>q.k-p.k)[0];
+  const sz=a.V<.1?"negligible":a.V<.3?"weak":a.V<.5?"moderate":"strong";
+  let t=`<p>Between <b>${esc(a.xn)}</b> and <b>${esc(a.fn)}</b> (n = ${a.n}) we obtain χ² = ${f3(a.chi)} with ${a.df} degree${a.df>1?"s":""} of freedom, giving p = ${fp(a.p)}. `;
+  t+=rej?`Since p &lt; α = ${al} (equivalently χ² &gt; ${f3(cv)}), we <b>reject independence</b>: the conditional distributions of ${esc(a.fn)} differ across ${esc(a.xn)} more than chance alone would explain. `
+        :`Since p ≥ α = ${al} (equivalently χ² ≤ ${f3(cv)}), we <b>do not reject independence</b>: the observed counts are consistent with sampling noise around the expected counts. `;
+  t+=`The effect size is Cramér’s V = ${f3(a.V)} (${sz}). The largest contribution comes from (${esc(big.x)}, ${esc(big.f)}): observed ${big.o} vs expected ${f2(big.e)}, i.e. ${big.o>big.e?"more":"fewer"} than independence predicts.</p>`;
+  if(a.minE<5)t+=`<p><b>Caution:</b> some expected counts are below 5, so the χ² approximation may be unreliable (consider merging categories or an exact test).</p>`;
+  t+=`<p>${rej?"This is evidence of <b>association only</b>; it does not show that "+esc(a.xn)+" causes changes in "+esc(a.fn)+" (or vice versa).":"A non-significant result does not <i>prove</i> independence; it only means the data do not contradict it."}</p>`;
+  $("concl").innerHTML=t;
+}
+
+/* ---------- wiring ---------- */
+function run(){
+  clearInterval(timer);
+  const a=analyse($("raw").value);
+  if(a.err){$("result").className="result rej";$("result").textContent=a.err;return}
+  A=a;step=a.cells.length;renderResult();renderTables();renderStep();
+}
+const sel=$("ds");
+sel.innerHTML=Object.entries(DS).map(([k,d])=>`<option value="${k}">${d.label}</option>`).join("")+`<option value="custom">Custom (edit the data below)</option>`;
+sel.onchange=()=>{if(sel.value!="custom")$("raw").value=toText(DS[sel.value]);run()};
+$("raw").oninput=()=>{sel.value="custom";run()};
+$("alpha").onchange=()=>{if(A)renderResult()};
+$("next").onclick=()=>{if(!A)return;clearInterval(timer);step=step>=A.cells.length?1:step+1;renderStep()};
+$("play").onclick=()=>{if(!A)return;clearInterval(timer);step=0;renderStep();timer=setInterval(()=>{step++;renderStep();if(step>=A.cells.length)clearInterval(timer)},900)};
+$("raw").value=toText(DS.study);run();
+</script>
+</body>
+</html>
